@@ -132,7 +132,7 @@
                     const result = await response.json();
 
                     if (response.ok) {
-                        this.showToast(`✅ 成功下單！${result.message}`, 'bg-success');
+                        this.showToast(`✅ 成功下單！`, 'bg-success');
                         item.orderQty = null; // 清空輸入框
                         this.fetchProducts(); // 重新整理庫存顯示
                     } else {
