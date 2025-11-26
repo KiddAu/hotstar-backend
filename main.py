@@ -109,3 +109,44 @@ def create_order(order: OrderSchema):
     finally:
         cursor.close()
         conn.close()
+        
+# 3. 後台查詢訂單 API (新增功能)
+@app.get("/orders")
+def get_orders():
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    
+    # 用 SQL Join 將訂單、商品、單位連埋一齊查
+    query = """
+        SELECT 
+            o.order_number, 
+            o.store_name, 
+            to_char(o.order_date, 'YYYY-MM-DD HH24:MI') as order_time,
+            p.name as product_name, 
+            oi.quantity, 
+            u.unit_name,
+            oi.calculated_qty
+        FROM orders o
+        JOIN order_items oi ON o.id = oi.order_id
+        JOIN products p ON oi.product_id = p.id
+        JOIN product_units u ON oi.unit_id = u.id
+        ORDER BY o.order_date DESC;
+    """
+    
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    
+    results = []
+    for row in rows:
+        results.append({
+            "order_no": row[0],
+            "store": row[1],
+            "time": row[2],
+            "product": row[3],
+            "qty": f"{row[4]} {row[5]}",   # 例如: 5 箱
+            "total_weight": f"{row[6]} KG" # 例如: 100 KG
+        })
+    
+    cursor.close()
+    conn.close()
+    return results
