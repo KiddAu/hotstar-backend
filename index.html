@@ -44,8 +44,8 @@
                         換算率: 1{{ item.selling_unit }} = {{ item.rate }}KG
                     </p>
                     <p class="card-text mb-3">
-                        總倉剩餘: <span class="stock-tag text-success">{{ item.stock_left }}</span>
-                    </p>
+						庫存狀態: <span class="badge bg-success">供應中</span>
+					</p>
 
                     <div class="d-flex gap-2">
                         <input type="number" class="form-control" v-model.number="item.orderQty" min="1" placeholder="訂購數量">
