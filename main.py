@@ -25,6 +25,12 @@ class OrderSchema(BaseModel):
     product_id: int
     unit_id: int
     quantity: int
+    
+    # 定義新增用戶的格式
+class UserSchema(BaseModel):
+    username: str
+    password: str
+    display_name: str
 
 @app.get("/")
 def home():
@@ -150,3 +156,31 @@ def get_orders():
     cursor.close()
     conn.close()
     return results
+    
+# 4. Admin 新增用戶 API
+@app.post("/create_user")
+def create_user(user: UserSchema):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+
+    try:
+        # 檢查帳號是否已存在
+        cursor.execute("SELECT id FROM store_users WHERE username = %s", (user.username,))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="這個帳號 ID 已經有人用了！")
+
+        # 插入新用戶
+        cursor.execute(
+            "INSERT INTO store_users (username, password, display_name) VALUES (%s, %s, %s)",
+            (user.username, user.password, user.display_name)
+        )
+
+        conn.commit()
+        return {"status": "success", "message": f"成功建立用戶: {user.display_name}"}
+
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
