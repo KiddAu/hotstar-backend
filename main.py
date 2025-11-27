@@ -185,12 +185,13 @@ def create_user(user: UserSchema):
         cursor.close()
         conn.close()
         
-# 5. 獲取用戶列表 (管理介面用)
+# 5. 獲取用戶列表 (已修改：移除密碼欄位，改為回傳 is_reset_needed)
 @app.get("/users")
 def get_users():
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, display_name, is_active, to_char(created_at, 'YYYY-MM-DD') FROM store_users ORDER BY id ASC")
+    # 👇 拿走 password，改拿 is_reset_needed
+    cursor.execute("SELECT id, username, display_name, is_active, to_char(created_at, 'YYYY-MM-DD'), is_reset_needed FROM store_users ORDER BY id ASC")
     rows = cursor.fetchall()
     
     users = []
@@ -199,8 +200,9 @@ def get_users():
             "id": row[0],
             "username": row[1],
             "display_name": row[2],
-            "is_active": row[3], # True 定 False
-            "created_at": row[4]
+            "is_active": row[3],
+            "created_at": row[4],
+            "is_reset_needed": row[5] # True 代表下次要改密碼
         })
     cursor.close()
     conn.close()
@@ -219,6 +221,32 @@ def toggle_user_status(user_id: int):
         
         status_text = "已啟用" if result[1] else "已停用"
         return {"status": "success", "message": f"用戶 {result[0]} {status_text}"}
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+        
+# 7. 重置密碼 API (新增功能)
+@app.put("/users/{user_id}/reset_password")
+def reset_password(user_id: int):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    try:
+        # 預設重置密碼為 "123456"
+        default_pwd = "123456"
+        
+        # SQL: 修改密碼，並設定 is_reset_needed = TRUE
+        cursor.execute(
+            "UPDATE store_users SET password = %s, is_reset_needed = TRUE WHERE id = %s RETURNING display_name", 
+            (default_pwd, user_id)
+        )
+        result = cursor.fetchone()
+        conn.commit()
+        
+        return {"status": "success", "message": f"已重置 {result[0]} 的密碼為 {default_pwd}"}
         
     except Exception as e:
         conn.rollback()

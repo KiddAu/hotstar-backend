@@ -63,11 +63,6 @@
         </div>
 
         <div v-if="currentTab === 'users'">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <p class="text-muted mb-0 small">管理各分店的登入權限，結業分店請點擊「停用」。</p>
-                <button class="btn btn-warning btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#userModal">➕ 新增分店帳號</button>
-            </div>
-
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead class="table-light">
@@ -75,9 +70,9 @@
                             <th>ID</th>
                             <th>登入帳號</th>
                             <th>分店名稱</th>
-                            <th>建立日期</th>
-                            <th>目前狀態</th>
-                            <th>操作</th>
+                            <th>狀態</th> <th>建立日期</th>
+                            <th class="text-center">帳號權限</th>
+                            <th class="text-center">密碼管理</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -85,16 +80,26 @@
                             <td>{{ user.id }}</td>
                             <td class="fw-bold">{{ user.username }}</td>
                             <td>{{ user.display_name }}</td>
-                            <td class="small text-muted">{{ user.created_at }}</td>
+                            
                             <td>
-                                <span v-if="user.is_active" class="badge bg-success">正常運作</span>
-                                <span v-else class="badge bg-danger">已停用</span>
+                                <span v-if="!user.is_active" class="badge bg-secondary">停用中</span>
+                                <span v-else-if="user.is_reset_needed" class="badge bg-warning text-dark">等待改密碼</span>
+                                <span v-else class="badge bg-success">正常</span>
                             </td>
-                            <td>
+
+                            <td class="small text-muted">{{ user.created_at }}</td>
+                            
+                            <td class="text-center">
                                 <button class="btn btn-sm" 
                                     :class="user.is_active ? 'btn-outline-danger' : 'btn-outline-success'"
                                     @click="toggleUser(user)">
-                                    {{ user.is_active ? '⛔ 停用權限' : '✅ 重新啟用' }}
+                                    {{ user.is_active ? '⛔ 停用' : '✅ 啟用' }}
+                                </button>
+                            </td>
+
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-dark" @click="resetPassword(user)">
+                                    🔄 重置
                                 </button>
                             </td>
                         </tr>
@@ -217,7 +222,25 @@
                         user.is_active = !user.is_active;
                     } else { alert("操作失敗"); }
                 } catch (e) { alert("連線錯誤"); }
-            }
+            },
+			// 👇 新增：重置密碼功能
+            async resetPassword(user) {
+                if(!confirm(`⚠️ 確定要重置 [${user.display_name}] 的密碼嗎？\n\n重置後密碼將變為: 123456`)) return;
+
+                try {
+                    const res = await fetch(`${this.apiUrl}users/${user.id}/reset_password`, { method: 'PUT' });
+                    const result = await res.json();
+                    
+                    if (res.ok) {
+                        alert(result.message);
+                        this.fetchUsers(); // 刷新列表，會看到狀態變了 "等待改密碼"
+                    } else {
+                        alert("重置失敗");
+                    }
+                } catch (e) {
+                    alert("連線錯誤");
+                }
+            },
         }
     }).mount('#app')
 </script>
