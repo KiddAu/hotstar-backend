@@ -8,24 +8,26 @@
     <style>
         body { background-color: #f0f2f5; }
         .table-card { background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        [v-cloak] { display: none; } /* 避免 Vue 未載入時顯示花括號 */
     </style>
 </head>
 <body>
 
 <div id="app" class="container py-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold text-dark">📋 訂單管理中心</h2>
-    <div>
-        <button class="btn btn-success me-2" @click="exportToExcel">📥 匯出 Excel</button>
-        <button class="btn btn-primary" @click="fetchOrders">🔄 刷新列表</button>
+        <h2 class="fw-bold text-dark">📋 訂單管理中心</h2>
+        <div>
+            <button class="btn btn-success me-2" @click="exportToExcel">📥 匯出 Excel</button>
+            <button class="btn btn-primary" @click="fetchOrders">🔄 刷新列表</button>
+        </div>
     </div>
-</div>
 
     <div v-if="loading" class="text-center my-5">
         <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">正在連線至總部資料庫...</p>
     </div>
 
-    <div class="table-card p-4" v-else>
+    <div class="table-card p-4" v-else v-cloak>
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead class="table-light">
@@ -66,8 +68,8 @@
     createApp({
         data() {
             return {
-                // 🔴 記得換返你條 Render Link
-                apiUrl: 'https://hotstar-api.onrender.com/',
+                // 🔴 請在這裡填入你正確的 Render URL (記得最後要有 /)
+                apiUrl: 'https://hotstar-api.onrender.com/', 
                 orders: [],
                 loading: true
             }
@@ -76,56 +78,58 @@
             this.fetchOrders();
         },
         methods: {
+            // 功能 1: 讀取訂單
             async fetchOrders() {
                 this.loading = true;
                 try {
-                    // 呼叫我們剛剛在 main.py 加的新功能 /orders
                     const response = await fetch(`${this.apiUrl}orders`);
+                    if (!response.ok) {
+                        throw new Error("無法連線 API");
+                    }
                     const data = await response.json();
                     this.orders = data;
                 } catch (error) {
-                    alert("無法讀取訂單紀錄");
+                    console.error(error);
+                    alert("無法讀取訂單紀錄，請檢查 API 網址是否正確！");
                 } finally {
                     this.loading = false;
                 }
+            }, // 👈 剛才可能就是少了這個逗號！
+            
+            // 功能 2: 匯出 Excel
+            exportToExcel() {
+                if (this.orders.length === 0) {
+                    alert("無數據可以匯出！");
+                    return;
+                }
+
+                // 定義 CSV 內容 (加 BOM 防止亂碼)
+                let csvContent = "\ufeff"; 
+                csvContent += "訂單時間,訂單編號,分店名稱,商品,數量,總重量\n";
+
+                this.orders.forEach(row => {
+                    let rowString = [
+                        row.time,
+                        row.order_no,
+                        row.store,
+                        row.product,
+                        row.qty,
+                        row.total_weight
+                    ].join(",");
+                    csvContent += rowString + "\n";
+                });
+
+                // 觸發下載
+                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `豪大大訂單報表_${new Date().toISOString().slice(0,10)}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             }
-			
-			// 👇 新增這個功能
-			exportToExcel() {
-				if (this.orders.length === 0) {
-					alert("無數據可以匯出！");
-					return;
-				}
-
-				// 1. 定義 CSV 標頭 (Header)
-				let csvContent = "\ufeff"; // 👈 這一行好重要！加 BOM 標記，否則 Excel 開中文會亂碼
-				csvContent += "訂單時間,訂單編號,分店名稱,商品,數量,總重量\n";
-
-				// 2. 將每一行數據轉成 CSV 格式
-				this.orders.forEach(row => {
-					// 確保數據裡面無逗號，以免整爛個 CSV
-					let rowString = [
-						row.time,
-						row.order_no,
-						row.store,
-						row.product,
-						row.qty,
-						row.total_weight
-					].join(",");
-					csvContent += rowString + "\n";
-				});
-
-				// 3. 觸發瀏覽器下載
-				const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-				const link = document.createElement("a");
-				const url = URL.createObjectURL(blob);
-				link.setAttribute("href", url);
-				link.setAttribute("download", `豪大大訂單報表_${new Date().toISOString().slice(0,10)}.csv`);
-				link.style.visibility = 'hidden';
-				document.body.appendChild(link);
-				link.click();
-				document.body.removeChild(link);
-			},
         }
     }).mount('#app')
 </script>
