@@ -93,38 +93,38 @@
 			// 👇 新增這個功能
 			exportToExcel() {
 				if (this.orders.length === 0) {
-				alert("無數據可以匯出！");
-				return;
-			}
+					alert("無數據可以匯出！");
+					return;
+				}
 
-			// 1. 定義 CSV 標頭 (Header)
-			let csvContent = "\ufeff"; // 👈 這一行好重要！加 BOM 標記，否則 Excel 開中文會亂碼
-			csvContent += "訂單時間,訂單編號,分店名稱,商品,數量,總重量\n";
+				// 1. 定義 CSV 標頭 (Header)
+				let csvContent = "\ufeff"; // 👈 這一行好重要！加 BOM 標記，否則 Excel 開中文會亂碼
+				csvContent += "訂單時間,訂單編號,分店名稱,商品,數量,總重量\n";
 
-			// 2. 將每一行數據轉成 CSV 格式
-			this.orders.forEach(row => {
-            // 確保數據裡面無逗號，以免整爛個 CSV
-				let rowString = [
-					row.time,
-					row.order_no,
-					row.store,
-					row.product,
-					row.qty,
-					row.total_weight
-				].join(",");
-				csvContent += rowString + "\n";
-			});
+				// 2. 將每一行數據轉成 CSV 格式
+				this.orders.forEach(row => {
+					// 確保數據裡面無逗號，以免整爛個 CSV
+					let rowString = [
+						row.time,
+						row.order_no,
+						row.store,
+						row.product,
+						row.qty,
+						row.total_weight
+					].join(",");
+					csvContent += rowString + "\n";
+				});
 
-			// 3. 觸發瀏覽器下載
-			const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-			const link = document.createElement("a");
-			const url = URL.createObjectURL(blob);
-			link.setAttribute("href", url);
-			link.setAttribute("download", `豪大大訂單報表_${new Date().toISOString().slice(0,10)}.csv`);
-			link.style.visibility = 'hidden';
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
+				// 3. 觸發瀏覽器下載
+				const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+				const link = document.createElement("a");
+				const url = URL.createObjectURL(blob);
+				link.setAttribute("href", url);
+				link.setAttribute("download", `豪大大訂單報表_${new Date().toISOString().slice(0,10)}.csv`);
+				link.style.visibility = 'hidden';
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
 			},
         }
     }).mount('#app')
