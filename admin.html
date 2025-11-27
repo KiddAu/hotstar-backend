@@ -3,87 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>豪大大 - 總部訂單管理</title>
+    <title>豪大大 - 總部管理系統</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f0f2f5; }
-        .table-card { background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        body { background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; }
+        .nav-tabs .nav-link.active { background-color: #fff; border-bottom-color: #fff; font-weight: bold; color: #0d6efd; }
+        .nav-tabs .nav-link { color: #6c757d; cursor: pointer; }
+        .table-card { background: white; border-radius: 0 0 10px 10px; border: 1px solid #dee2e6; border-top: none; }
         [v-cloak] { display: none; }
     </style>
 </head>
 <body>
 
 <div id="app" class="container py-5">
+    
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-dark">📋 訂單管理中心</h2>
-        <div>
-            <button class="btn btn-warning me-2 text-dark fw-bold" data-bs-toggle="modal" data-bs-target="#userModal">👤 新增用戶</button>
-            <button class="btn btn-success me-2" @click="exportToExcel">📥 匯出 Excel</button>
-            <button class="btn btn-primary" @click="fetchOrders">🔄 刷新</button>
-        </div>
+        <h2 class="fw-bold text-dark">🍗 豪大大總部系統</h2>
+        <span class="badge bg-secondary">Admin Panel v2.0</span>
     </div>
 
-    <div v-if="loading" class="text-center my-5">
-        <div class="spinner-border text-primary" role="status"></div>
-    </div>
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link" :class="{ active: currentTab === 'orders' }" @click="currentTab = 'orders'">📋 訂單紀錄</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" :class="{ active: currentTab === 'users' }" @click="switchTab('users')">👥 分店帳號管理</a>
+        </li>
+    </ul>
 
-    <div class="table-card p-4" v-else v-cloak>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>訂單時間</th>
-                        <th>訂單編號</th>
-                        <th>分店名稱</th>
-                        <th>訂購商品</th>
-                        <th>數量</th>
-                        <th>總重量</th>
-                        <th>狀態</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="order in orders" :key="order.order_no">
-                        <td class="text-muted small">{{ order.time }}</td>
-                        <td class="fw-bold text-primary">{{ order.order_no }}</td>
-                        <td><span class="badge bg-dark">{{ order.store }}</span></td>
-                        <td>{{ order.product }}</td>
-                        <td class="fw-bold">{{ order.qty }}</td>
-                        <td class="text-danger">{{ order.total_weight }}</td>
-                        <td><span class="badge bg-success">已確認</span></td>
-                    </tr>
-                    <tr v-if="orders.length === 0">
-                        <td colspan="7" class="text-center py-4 text-muted">暫無訂單紀錄</td>
-                    </tr>
-                </tbody>
-            </table>
+    <div class="table-card p-4 shadow-sm bg-white" v-cloak>
+        
+        <div v-if="currentTab === 'orders'">
+            <div class="d-flex justify-content-end mb-3">
+                <button class="btn btn-success btn-sm me-2" @click="exportToExcel">📥 匯出 Excel</button>
+                <button class="btn btn-outline-primary btn-sm" @click="fetchOrders">🔄 刷新</button>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>時間</th><th>編號</th><th>分店</th><th>商品</th><th>數量</th><th>扣倉重量</th><th>狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="order in orders" :key="order.order_no">
+                            <td class="small text-muted">{{ order.time }}</td>
+                            <td class="fw-bold text-primary small">{{ order.order_no }}</td>
+                            <td>{{ order.store }}</td>
+                            <td>{{ order.product }}</td>
+                            <td class="fw-bold">{{ order.qty }}</td>
+                            <td class="text-danger">{{ order.total_weight }}</td>
+                            <td><span class="badge bg-success">已確認</span></td>
+                        </tr>
+                        <tr v-if="orders.length === 0"><td colspan="7" class="text-center text-muted">暫無訂單</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
+
+        <div v-if="currentTab === 'users'">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <p class="text-muted mb-0 small">管理各分店的登入權限，結業分店請點擊「停用」。</p>
+                <button class="btn btn-warning btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#userModal">➕ 新增分店帳號</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>登入帳號</th>
+                            <th>分店名稱</th>
+                            <th>建立日期</th>
+                            <th>目前狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="user in users" :key="user.id" :class="{'table-secondary': !user.is_active}">
+                            <td>{{ user.id }}</td>
+                            <td class="fw-bold">{{ user.username }}</td>
+                            <td>{{ user.display_name }}</td>
+                            <td class="small text-muted">{{ user.created_at }}</td>
+                            <td>
+                                <span v-if="user.is_active" class="badge bg-success">正常運作</span>
+                                <span v-else class="badge bg-danger">已停用</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm" 
+                                    :class="user.is_active ? 'btn-outline-danger' : 'btn-outline-success'"
+                                    @click="toggleUser(user)">
+                                    {{ user.is_active ? '⛔ 停用權限' : '✅ 重新啟用' }}
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
     <div class="modal fade" id="userModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-warning">
-                    <h5 class="modal-title fw-bold text-dark">👤 新增分店帳號</h5>
+                    <h5 class="modal-title fw-bold">新增分店帳號</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form @submit.prevent="createUser">
                         <div class="mb-3">
-                            <label class="form-label">登入帳號 (ID)</label>
-                            <input type="text" class="form-control" v-model="newUser.username" placeholder="例如: mk_store" required>
-                            <div class="form-text">這是店長用來登入的英文代號</div>
+                            <label>登入帳號</label>
+                            <input type="text" class="form-control" v-model="newUser.username" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">分店顯示名稱</label>
-                            <input type="text" class="form-control" v-model="newUser.display_name" placeholder="例如: 旺角分店" required>
+                            <label>分店名稱</label>
+                            <input type="text" class="form-control" v-model="newUser.display_name" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">初始密碼</label>
-                            <input type="text" class="form-control" v-model="newUser.password" placeholder="例如: 123456" required>
+                            <label>初始密碼</label>
+                            <input type="text" class="form-control" v-model="newUser.password" required>
                         </div>
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-dark">建立帳號</button>
-                        </div>
+                        <button type="submit" class="btn btn-dark w-100">建立帳號</button>
                     </form>
                 </div>
             </div>
@@ -101,72 +144,79 @@
     createApp({
         data() {
             return {
-                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 改這裡！
+                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改網址！
+                currentTab: 'orders', // 預設顯示訂單頁
                 orders: [],
-                loading: true,
-                // 新增用戶的表單數據
-                newUser: {
-                    username: '',
-                    password: '',
-                    display_name: ''
-                },
+                users: [],
+                newUser: { username: '', password: '', display_name: '' },
                 modalInstance: null
             }
         },
         mounted() {
-            this.fetchOrders();
-            // 初始化 Modal
+            this.fetchOrders(); // 一入黎先載入訂單
             const modalEl = document.getElementById('userModal');
             this.modalInstance = new bootstrap.Modal(modalEl);
         },
         methods: {
-            async fetchOrders() {
-                this.loading = true;
-                try {
-                    const response = await fetch(`${this.apiUrl}orders`);
-                    if (!response.ok) throw new Error("API Error");
-                    this.orders = await response.json();
-                } catch (error) {
-                    alert("無法讀取訂單");
-                } finally {
-                    this.loading = false;
+            switchTab(tabName) {
+                this.currentTab = tabName;
+                if (tabName === 'users') {
+                    this.fetchUsers(); // 切換到用戶頁時才載入用戶資料
                 }
+            },
+            // --- 訂單相關 ---
+            async fetchOrders() {
+                try {
+                    const res = await fetch(`${this.apiUrl}orders`);
+                    this.orders = await res.json();
+                } catch (e) { alert("讀取訂單失敗"); }
             },
             exportToExcel() {
+                /* (維持原本 Excel 邏輯，為節省篇幅省略) */
                 if (this.orders.length === 0) { alert("無數據"); return; }
                 let csv = "\ufeff時間,編號,分店,商品,數量,重量\n";
-                this.orders.forEach(row => {
-                    csv += `${row.time},${row.order_no},${row.store},${row.product},${row.qty},${row.total_weight}\n`;
-                });
-                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                this.orders.forEach(r => csv += `${r.time},${r.order_no},${r.store},${r.product},${r.qty},${r.total_weight}\n`);
+                const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
                 const link = document.createElement("a");
                 link.href = URL.createObjectURL(blob);
-                link.download = `訂單報表.csv`;
+                link.download = `Order_Report.csv`;
                 link.click();
             },
-            // 👇 新增用戶功能
+            
+            // --- 用戶管理相關 (新增功能) ---
+            async fetchUsers() {
+                try {
+                    const res = await fetch(`${this.apiUrl}users`);
+                    this.users = await res.json();
+                } catch (e) { alert("讀取用戶列表失敗"); }
+            },
             async createUser() {
                 try {
-                    const response = await fetch(`${this.apiUrl}create_user`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                    const res = await fetch(`${this.apiUrl}create_user`, {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(this.newUser)
                     });
-                    
-                    const result = await response.json();
-                    
-                    if (response.ok) {
-                        alert(`✅ ${result.message}`);
-                        // 清空表單
+                    const result = await res.json();
+                    if (res.ok) {
+                        alert(result.message);
                         this.newUser = { username: '', password: '', display_name: '' };
-                        // 關閉彈窗
                         this.modalInstance.hide();
-                    } else {
-                        alert(`❌ 失敗: ${result.detail}`);
-                    }
-                } catch (error) {
-                    alert("連線錯誤，請稍後再試");
-                }
+                        this.fetchUsers(); // 刷新列表
+                    } else { alert(result.detail); }
+                } catch (e) { alert("連線錯誤"); }
+            },
+            // 🔴 停用/啟用用戶
+            async toggleUser(user) {
+                if(!confirm(`確定要${user.is_active ? '停用' : '啟用'} ${user.display_name} 嗎？`)) return;
+                
+                try {
+                    const res = await fetch(`${this.apiUrl}users/${user.id}/toggle`, { method: 'PUT' });
+                    const result = await res.json();
+                    if (res.ok) {
+                        // 成功後，直接更新前端數據，唔洗再 fetch 一次，體驗更順暢
+                        user.is_active = !user.is_active;
+                    } else { alert("操作失敗"); }
+                } catch (e) { alert("連線錯誤"); }
             }
         }
     }).mount('#app')

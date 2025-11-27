@@ -184,3 +184,45 @@ def create_user(user: UserSchema):
     finally:
         cursor.close()
         conn.close()
+        
+# 5. 獲取用戶列表 (管理介面用)
+@app.get("/users")
+def get_users():
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, display_name, is_active, to_char(created_at, 'YYYY-MM-DD') FROM store_users ORDER BY id ASC")
+    rows = cursor.fetchall()
+    
+    users = []
+    for row in rows:
+        users.append({
+            "id": row[0],
+            "username": row[1],
+            "display_name": row[2],
+            "is_active": row[3], # True 定 False
+            "created_at": row[4]
+        })
+    cursor.close()
+    conn.close()
+    return users
+
+# 6. 切換用戶狀態 (停用/啟用)
+@app.put("/users/{user_id}/toggle")
+def toggle_user_status(user_id: int):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    try:
+        # SQL: 將 is_active 變成相反 (NOT is_active)
+        cursor.execute("UPDATE store_users SET is_active = NOT is_active WHERE id = %s RETURNING display_name, is_active", (user_id,))
+        result = cursor.fetchone()
+        conn.commit()
+        
+        status_text = "已啟用" if result[1] else "已停用"
+        return {"status": "success", "message": f"用戶 {result[0]} {status_text}"}
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
