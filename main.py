@@ -26,11 +26,21 @@ class OrderSchema(BaseModel):
     unit_id: int
     quantity: int
     
-    # 定義新增用戶的格式
+# 定義新增用戶的格式
 class UserSchema(BaseModel):
     username: str
     password: str
     display_name: str
+    
+# 定義登入資料格式
+class LoginSchema(BaseModel):
+    username: str
+    password: str
+
+# 定義修改密碼格式
+class ChangePasswordSchema(BaseModel):
+    user_id: int
+    new_password: str
 
 @app.get("/")
 def home():
@@ -248,6 +258,68 @@ def reset_password(user_id: int):
         
         return {"status": "success", "message": f"已重置 {result[0]} 的密碼為 {default_pwd}"}
         
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+        
+# 8. 分店登入 API
+@app.post("/login")
+def login(data: LoginSchema):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    
+    try:
+        # 查詢用戶
+        cursor.execute(
+            "SELECT id, display_name, password, is_active, is_reset_needed FROM store_users WHERE username = %s", 
+            (data.username,)
+        )
+        user = cursor.fetchone()
+        
+        # 1. 檢查帳號是否存在
+        if not user:
+            raise HTTPException(status_code=401, detail="帳號不存在")
+        
+        # 2. 檢查密碼 (注意：這裡暫時用明文比對，生產環境建議加密)
+        db_password = user[2]
+        if db_password != data.password:
+            raise HTTPException(status_code=401, detail="密碼錯誤")
+            
+        # 3. 檢查是否被停用
+        is_active = user[3]
+        if not is_active:
+            raise HTTPException(status_code=403, detail="此帳號已被停用，請聯絡總部")
+
+        # 登入成功，回傳用戶資料
+        return {
+            "status": "success",
+            "user": {
+                "id": user[0],
+                "display_name": user[1],
+                "is_reset_needed": user[4] # 告訴前端是否需要強制改密碼
+            }
+        }
+
+    finally:
+        cursor.close()
+        conn.close()
+
+# 9. 用戶修改密碼 API
+@app.post("/change_password")
+def change_password(data: ChangePasswordSchema):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    try:
+        # 更新密碼，並將 is_reset_needed 設為 False
+        cursor.execute(
+            "UPDATE store_users SET password = %s, is_reset_needed = FALSE WHERE id = %s",
+            (data.new_password, data.user_id)
+        )
+        conn.commit()
+        return {"status": "success", "message": "密碼修改成功，請重新登入"}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
