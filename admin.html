@@ -14,9 +14,12 @@
 
 <div id="app" class="container py-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-dark">📋 訂單管理中心</h2>
+    <h2 class="fw-bold text-dark">📋 訂單管理中心</h2>
+    <div>
+        <button class="btn btn-success me-2" @click="exportToExcel">📥 匯出 Excel</button>
         <button class="btn btn-primary" @click="fetchOrders">🔄 刷新列表</button>
     </div>
+</div>
 
     <div v-if="loading" class="text-center my-5">
         <div class="spinner-border text-primary" role="status"></div>
@@ -86,6 +89,43 @@
                     this.loading = false;
                 }
             }
+			
+			// 👇 新增這個功能
+			exportToExcel() {
+				if (this.orders.length === 0) {
+				alert("無數據可以匯出！");
+				return;
+			}
+
+			// 1. 定義 CSV 標頭 (Header)
+			let csvContent = "\ufeff"; // 👈 這一行好重要！加 BOM 標記，否則 Excel 開中文會亂碼
+			csvContent += "訂單時間,訂單編號,分店名稱,商品,數量,總重量\n";
+
+			// 2. 將每一行數據轉成 CSV 格式
+			this.orders.forEach(row => {
+            // 確保數據裡面無逗號，以免整爛個 CSV
+				let rowString = [
+					row.time,
+					row.order_no,
+					row.store,
+					row.product,
+					row.qty,
+					row.total_weight
+				].join(",");
+				csvContent += rowString + "\n";
+			});
+
+			// 3. 觸發瀏覽器下載
+			const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+			const link = document.createElement("a");
+			const url = URL.createObjectURL(blob);
+			link.setAttribute("href", url);
+			link.setAttribute("download", `豪大大訂單報表_${new Date().toISOString().slice(0,10)}.csv`);
+			link.style.visibility = 'hidden';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			},
         }
     }).mount('#app')
 </script>
