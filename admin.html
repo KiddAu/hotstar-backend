@@ -8,7 +8,7 @@
     <style>
         body { background-color: #f0f2f5; }
         .table-card { background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        [v-cloak] { display: none; } /* 避免 Vue 未載入時顯示花括號 */
+        [v-cloak] { display: none; }
     </style>
 </head>
 <body>
@@ -17,14 +17,14 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-dark">📋 訂單管理中心</h2>
         <div>
+            <button class="btn btn-warning me-2 text-dark fw-bold" data-bs-toggle="modal" data-bs-target="#userModal">👤 新增用戶</button>
             <button class="btn btn-success me-2" @click="exportToExcel">📥 匯出 Excel</button>
-            <button class="btn btn-primary" @click="fetchOrders">🔄 刷新列表</button>
+            <button class="btn btn-primary" @click="fetchOrders">🔄 刷新</button>
         </div>
     </div>
 
     <div v-if="loading" class="text-center my-5">
         <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-2 text-muted">正在連線至總部資料庫...</p>
     </div>
 
     <div class="table-card p-4" v-else v-cloak>
@@ -37,7 +37,7 @@
                         <th>分店名稱</th>
                         <th>訂購商品</th>
                         <th>數量</th>
-                        <th>總重量 (扣庫存)</th>
+                        <th>總重量</th>
                         <th>狀態</th>
                     </tr>
                 </thead>
@@ -58,9 +58,42 @@
             </table>
         </div>
     </div>
+
+    <div class="modal fade" id="userModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title fw-bold text-dark">👤 新增分店帳號</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form @submit.prevent="createUser">
+                        <div class="mb-3">
+                            <label class="form-label">登入帳號 (ID)</label>
+                            <input type="text" class="form-control" v-model="newUser.username" placeholder="例如: mk_store" required>
+                            <div class="form-text">這是店長用來登入的英文代號</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">分店顯示名稱</label>
+                            <input type="text" class="form-control" v-model="newUser.display_name" placeholder="例如: 旺角分店" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">初始密碼</label>
+                            <input type="text" class="form-control" v-model="newUser.password" placeholder="例如: 123456" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-dark">建立帳號</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
     const { createApp } = Vue
@@ -68,67 +101,72 @@
     createApp({
         data() {
             return {
-                // 🔴 請在這裡填入你正確的 Render URL (記得最後要有 /)
-                apiUrl: 'https://hotstar-api.onrender.com/', 
+                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 改這裡！
                 orders: [],
-                loading: true
+                loading: true,
+                // 新增用戶的表單數據
+                newUser: {
+                    username: '',
+                    password: '',
+                    display_name: ''
+                },
+                modalInstance: null
             }
         },
         mounted() {
             this.fetchOrders();
+            // 初始化 Modal
+            const modalEl = document.getElementById('userModal');
+            this.modalInstance = new bootstrap.Modal(modalEl);
         },
         methods: {
-            // 功能 1: 讀取訂單
             async fetchOrders() {
                 this.loading = true;
                 try {
                     const response = await fetch(`${this.apiUrl}orders`);
-                    if (!response.ok) {
-                        throw new Error("無法連線 API");
-                    }
-                    const data = await response.json();
-                    this.orders = data;
+                    if (!response.ok) throw new Error("API Error");
+                    this.orders = await response.json();
                 } catch (error) {
-                    console.error(error);
-                    alert("無法讀取訂單紀錄，請檢查 API 網址是否正確！");
+                    alert("無法讀取訂單");
                 } finally {
                     this.loading = false;
                 }
-            }, // 👈 剛才可能就是少了這個逗號！
-            
-            // 功能 2: 匯出 Excel
+            },
             exportToExcel() {
-                if (this.orders.length === 0) {
-                    alert("無數據可以匯出！");
-                    return;
-                }
-
-                // 定義 CSV 內容 (加 BOM 防止亂碼)
-                let csvContent = "\ufeff"; 
-                csvContent += "訂單時間,訂單編號,分店名稱,商品,數量,總重量\n";
-
+                if (this.orders.length === 0) { alert("無數據"); return; }
+                let csv = "\ufeff時間,編號,分店,商品,數量,重量\n";
                 this.orders.forEach(row => {
-                    let rowString = [
-                        row.time,
-                        row.order_no,
-                        row.store,
-                        row.product,
-                        row.qty,
-                        row.total_weight
-                    ].join(",");
-                    csvContent += rowString + "\n";
+                    csv += `${row.time},${row.order_no},${row.store},${row.product},${row.qty},${row.total_weight}\n`;
                 });
-
-                // 觸發下載
-                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
                 const link = document.createElement("a");
-                const url = URL.createObjectURL(blob);
-                link.setAttribute("href", url);
-                link.setAttribute("download", `豪大大訂單報表_${new Date().toISOString().slice(0,10)}.csv`);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
+                link.href = URL.createObjectURL(blob);
+                link.download = `訂單報表.csv`;
                 link.click();
-                document.body.removeChild(link);
+            },
+            // 👇 新增用戶功能
+            async createUser() {
+                try {
+                    const response = await fetch(`${this.apiUrl}create_user`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.newUser)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        alert(`✅ ${result.message}`);
+                        // 清空表單
+                        this.newUser = { username: '', password: '', display_name: '' };
+                        // 關閉彈窗
+                        this.modalInstance.hide();
+                    } else {
+                        alert(`❌ 失敗: ${result.detail}`);
+                    }
+                } catch (error) {
+                    alert("連線錯誤，請稍後再試");
+                }
             }
         }
     }).mount('#app')
