@@ -42,6 +42,12 @@ class ChangePasswordSchema(BaseModel):
     user_id: int
     new_password: str
 
+# 定義入貨/庫存調整格式
+class RestockSchema(BaseModel):
+    product_id: int
+    quantity: float  # 可以係正數 (入貨) 或 負數 (盤點扣除)
+    note: str        # 備註 (例如: 供應商入貨 / 盤點損耗)
+
 @app.get("/")
 def home():
     return {"message": "豪大大系統"}
@@ -320,6 +326,64 @@ def change_password(data: ChangePasswordSchema):
         )
         conn.commit()
         return {"status": "success", "message": "密碼修改成功，請重新登入"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+# 10. (Admin專用) 獲取商品總庫存列表
+@app.get("/admin/products")
+def get_admin_products():
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    # 直接查 products 表，唔需要 Join 單位表
+    cursor.execute("SELECT id, name, sku, current_stock, base_unit FROM products ORDER BY id ASC")
+    rows = cursor.fetchall()
+    
+    products = []
+    for row in rows:
+        products.append({
+            "id": row[0],
+            "name": row[1],
+            "sku": row[2],
+            "current_stock": row[3],
+            "base_unit": row[4]
+        })
+    cursor.close()
+    conn.close()
+    return products
+
+# 11. 庫存調整/入貨 API
+@app.post("/restock")
+def restock_product(data: RestockSchema):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    try:
+        # SQL: 原有庫存 + 變動數量
+        cursor.execute(
+            "UPDATE products SET current_stock = current_stock + %s WHERE id = %s RETURNING name, current_stock, base_unit",
+            (data.quantity, data.product_id)
+        )
+        result = cursor.fetchone()
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="搵唔到件貨")
+
+        conn.commit()
+        
+        product_name = result[0]
+        new_stock = result[1]
+        unit = result[2]
+        
+        action = "入貨" if data.quantity > 0 else "扣除"
+        
+        return {
+            "status": "success", 
+            "message": f"[{product_name}] 成功{action} {abs(data.quantity)} {unit}。最新庫存: {new_stock} {unit}"
+        }
+
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
