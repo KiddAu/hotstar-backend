@@ -21,7 +21,7 @@
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-dark">🍗 豪大大總部系統</h2>
-        <span class="badge bg-secondary">Admin Panel v4.0</span>
+        <span class="badge bg-secondary">Admin Panel v5.0</span>
     </div>
 
     <ul class="nav nav-tabs">
@@ -68,13 +68,12 @@
                     </tbody>
                 </table>
             </div>
-
             <div class="pagination-container" v-if="orders.length > 0">
                 <span class="text-muted small">顯示 {{ (pages.orders - 1) * limits.orders + 1 }} - {{ Math.min(pages.orders * limits.orders, orders.length) }} 筆 (共 {{ orders.length }} 筆)</span>
                 <nav>
                     <ul class="pagination mb-0">
                         <li class="page-item" :class="{ disabled: pages.orders === 1 }"><button class="page-link" @click="pages.orders--">上一頁</button></li>
-                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.orders }} / {{ Math.ceil(orders.length / limits.orders) }}</span></li>
+                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.orders }}</span></li>
                         <li class="page-item" :class="{ disabled: pages.orders >= Math.ceil(orders.length / limits.orders) }"><button class="page-link" @click="pages.orders++">下一頁</button></li>
                     </ul>
                 </nav>
@@ -101,13 +100,7 @@
             </div>
             <div class="pagination-container" v-if="users.length > 0">
                 <span class="text-muted small">共 {{ users.length }} 個帳號</span>
-                <nav>
-                    <ul class="pagination mb-0">
-                        <li class="page-item" :class="{ disabled: pages.users === 1 }"><button class="page-link" @click="pages.users--">上一頁</button></li>
-                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.users }}</span></li>
-                        <li class="page-item" :class="{ disabled: pages.users >= Math.ceil(users.length / limits.users) }"><button class="page-link" @click="pages.users++">下一頁</button></li>
-                    </ul>
-                </nav>
+                <nav><ul class="pagination mb-0"><li class="page-item" :class="{ disabled: pages.users === 1 }"><button class="page-link" @click="pages.users--">上一頁</button></li><li class="page-item disabled"><span class="page-link text-dark">{{ pages.users }}</span></li><li class="page-item" :class="{ disabled: pages.users >= Math.ceil(users.length / limits.users) }"><button class="page-link" @click="pages.users++">下一頁</button></li></ul></nav>
             </div>
         </div>
 
@@ -116,7 +109,6 @@
                 <p class="text-muted mb-0 small">管理總倉庫存。</p>
                 <button class="btn btn-primary btn-sm" @click="fetchInventory">🔄 刷新</button>
             </div>
-
             <table class="table align-middle table-bordered mb-0">
                 <thead class="table-light"><tr><th>SKU</th><th>商品</th><th class="text-end">目前庫存</th><th>單位</th><th class="text-center">操作</th></tr></thead>
                 <tbody>
@@ -130,13 +122,7 @@
             </table>
             <div class="pagination-container mb-5" v-if="inventory.length > 0">
                 <span class="text-muted small">共 {{ inventory.length }} 項產品</span>
-                <nav>
-                    <ul class="pagination mb-0 small">
-                        <li class="page-item" :class="{ disabled: pages.inventory === 1 }"><button class="page-link" @click="pages.inventory--">上一頁</button></li>
-                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.inventory }}</span></li>
-                        <li class="page-item" :class="{ disabled: pages.inventory >= Math.ceil(inventory.length / limits.inventory) }"><button class="page-link" @click="pages.inventory++">下一頁</button></li>
-                    </ul>
-                </nav>
+                <nav><ul class="pagination mb-0 small"><li class="page-item" :class="{ disabled: pages.inventory === 1 }"><button class="page-link" @click="pages.inventory--">上一頁</button></li><li class="page-item disabled"><span class="page-link text-dark">{{ pages.inventory }}</span></li><li class="page-item" :class="{ disabled: pages.inventory >= Math.ceil(inventory.length / limits.inventory) }"><button class="page-link" @click="pages.inventory++">下一頁</button></li></ul></nav>
             </div>
 
             <hr class="my-4">
@@ -167,13 +153,7 @@
             </div>
             <div class="pagination-container" v-if="inventoryLogs.length > 0">
                 <span class="text-muted small">共 {{ inventoryLogs.length }} 條紀錄</span>
-                <nav>
-                    <ul class="pagination mb-0">
-                        <li class="page-item" :class="{ disabled: pages.logs === 1 }"><button class="page-link" @click="pages.logs--">上一頁</button></li>
-                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.logs }} / {{ Math.ceil(inventoryLogs.length / limits.logs) }}</span></li>
-                        <li class="page-item" :class="{ disabled: pages.logs >= Math.ceil(inventoryLogs.length / limits.logs) }"><button class="page-link" @click="pages.logs++">下一頁</button></li>
-                    </ul>
-                </nav>
+                <nav><ul class="pagination mb-0"><li class="page-item" :class="{ disabled: pages.logs === 1 }"><button class="page-link" @click="pages.logs--">上一頁</button></li><li class="page-item disabled"><span class="page-link text-dark">{{ pages.logs }}</span></li><li class="page-item" :class="{ disabled: pages.logs >= Math.ceil(inventoryLogs.length / limits.logs) }"><button class="page-link" @click="pages.logs++">下一頁</button></li></ul></nav>
             </div>
         </div>
 
@@ -182,7 +162,6 @@
                 <div class="alert alert-info py-2 mb-0 small"><i class="bi bi-info-circle"></i> 設定店長可見商品。</div>
                 <button class="btn btn-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#newProductModal">➕ 新增商品</button>
             </div>
-
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead class="table-light"><tr><th>ID</th><th>SKU</th><th>商品名稱</th><th>Base</th><th>狀態</th><th>操作</th></tr></thead>
@@ -190,27 +169,16 @@
                         <tr v-for="item in paginatedConfigProducts" :key="item.id" :class="{'table-secondary': !item.is_active}">
                             <td>{{ item.id }}</td><td class="font-monospace text-muted">{{ item.sku }}</td><td class="fw-bold">{{ item.name }}</td><td>{{ item.base_unit }}</td>
                             <td><span v-if="item.is_active !== false" class="badge bg-success">上架中</span><span v-else class="badge bg-secondary">已下架</span></td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-dark me-2" @click="openUnitModal(item)">⚙️ 單位</button>
-                                <button class="btn btn-sm" :class="item.is_active !== false ? 'btn-outline-danger' : 'btn-outline-success'" @click="toggleProduct(item)">{{ item.is_active !== false ? '🔽' : '🔼' }}</button>
-                            </td>
+                            <td><button class="btn btn-sm btn-outline-dark me-2" @click="openUnitModal(item)">⚙️ 單位</button><button class="btn btn-sm" :class="item.is_active !== false ? 'btn-outline-danger' : 'btn-outline-success'" @click="toggleProduct(item)">{{ item.is_active !== false ? '🔽' : '🔼' }}</button></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
             <div class="pagination-container mb-5" v-if="inventory.length > 0">
                  <span class="text-muted small">共 {{ inventory.length }} 項產品</span>
-                 <nav>
-                    <ul class="pagination mb-0">
-                        <li class="page-item" :class="{ disabled: pages.configProducts === 1 }"><button class="page-link" @click="pages.configProducts--">上一頁</button></li>
-                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.configProducts }}</span></li>
-                        <li class="page-item" :class="{ disabled: pages.configProducts >= Math.ceil(inventory.length / limits.configProducts) }"><button class="page-link" @click="pages.configProducts++">下一頁</button></li>
-                    </ul>
-                </nav>
+                 <nav><ul class="pagination mb-0"><li class="page-item" :class="{ disabled: pages.configProducts === 1 }"><button class="page-link" @click="pages.configProducts--">上一頁</button></li><li class="page-item disabled"><span class="page-link text-dark">{{ pages.configProducts }}</span></li><li class="page-item" :class="{ disabled: pages.configProducts >= Math.ceil(inventory.length / limits.configProducts) }"><button class="page-link" @click="pages.configProducts++">下一頁</button></li></ul></nav>
             </div>
-
             <hr class="my-5">
-            
             <h4 class="fw-bold text-dark mb-3">🛠️ 配置變更紀錄</h4>
             <div class="table-responsive">
                 <table class="table table-striped align-middle border mb-0">
@@ -225,13 +193,7 @@
             </div>
             <div class="pagination-container" v-if="productLogs.length > 0">
                 <span class="text-muted small">共 {{ productLogs.length }} 條紀錄</span>
-                <nav>
-                    <ul class="pagination mb-0">
-                        <li class="page-item" :class="{ disabled: pages.configLogs === 1 }"><button class="page-link" @click="pages.configLogs--">上一頁</button></li>
-                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.configLogs }} / {{ Math.ceil(productLogs.length / limits.configLogs) }}</span></li>
-                        <li class="page-item" :class="{ disabled: pages.configLogs >= Math.ceil(productLogs.length / limits.configLogs) }"><button class="page-link" @click="pages.configLogs++">下一頁</button></li>
-                    </ul>
-                </nav>
+                <nav><ul class="pagination mb-0"><li class="page-item" :class="{ disabled: pages.configLogs === 1 }"><button class="page-link" @click="pages.configLogs--">上一頁</button></li><li class="page-item disabled"><span class="page-link text-dark">{{ pages.configLogs }}</span></li><li class="page-item" :class="{ disabled: pages.configLogs >= Math.ceil(productLogs.length / limits.configLogs) }"><button class="page-link" @click="pages.configLogs++">下一頁</button></li></ul></nav>
             </div>
         </div>
 
@@ -244,13 +206,18 @@
 
 </div>
 
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/zh_tw.js"></script>
+
 <script>
     const { createApp } = Vue
 
     createApp({
         data() {
             return {
-                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改網址！
+                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改成你的網址！
                 currentTab: 'orders',
                 
                 // 數據
@@ -262,12 +229,8 @@
                 
                 selectedProduct: null,
                 
-                // 👇 篩選變數
-                filters: { 
-                    store: '', 
-                    dateRange: '',      // 訂單用的範圍
-                    logDateRange: ''    // 倉儲紀錄用的範圍 (New)
-                },
+                // 篩選
+                filters: { store: '', dateRange: '', logDateRange: '' },
                 
                 // 分頁設定
                 pages: { orders: 1, users: 1, inventory: 1, logs: 1, configProducts: 1, configLogs: 1 },
@@ -275,8 +238,7 @@
 
                 // 實例
                 userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, 
-                flatpickrInstance: null, // 這是倉儲紀錄日曆
-                orderDateInstance: null  // 這是訂單日曆
+                flatpickrInstance: null, orderDateInstance: null
             }
         },
         computed: {
@@ -288,8 +250,7 @@
             paginatedConfigLogs() { return this.paginate(this.productLogs, this.pages.configLogs, this.limits.configLogs); }
         },
         mounted() {
-            this.fetchUsers(); 
-            this.fetchOrders();
+            this.fetchUsers(); this.fetchOrders();
             this.userModalInstance = new bootstrap.Modal(document.getElementById('userModal'));
             this.restockModalInstance = new bootstrap.Modal(document.getElementById('restockModal'));
             this.newProductModalInstance = new bootstrap.Modal(document.getElementById('newProductModal'));
@@ -306,28 +267,16 @@
                 if (tab === 'inventory' || tab === 'products') {
                     this.fetchInventory(); 
                     if(tab === 'products') this.fetchProductLogs();
-                    
                     if(tab === 'inventory') {
-                        // 這裡不需急著 fetchLogs，因為日曆初始化會觸發 onChange，到時會自己 fetch
-                        // 但為了體驗，如果 filters.logDateRange 是空的，我們可以先 fetch 全部(最近)
                         if(!this.filters.logDateRange) this.fetchLogs();
-
                         this.$nextTick(() => {
                             if (this.flatpickrInstance) { this.flatpickrInstance.destroy(); this.flatpickrInstance = null; }
-                            
-                            // 👇 ID 改成了 logDatePicker
                             const pickerElement = document.getElementById("logDatePicker");
                             if (pickerElement) {
                                 this.flatpickrInstance = flatpickr(pickerElement, {
-                                    locale: "zh_tw", 
-                                    mode: "range",      // 👈 改成 Range 模式
-                                    dateFormat: "Y-m-d",
-                                    disableMobile: true,
-                                    defaultDate: this.filters.logDateRange, // 記住上次選的
-                                    onChange: (d, s) => { 
-                                        this.filters.logDateRange = s; 
-                                        this.fetchLogs(); // 選完即刻搜尋
-                                    }
+                                    locale: "zh_tw", mode: "range", dateFormat: "Y-m-d", disableMobile: true,
+                                    defaultDate: this.filters.logDateRange, 
+                                    onChange: (d, s) => { this.filters.logDateRange = s; this.fetchLogs(); }
                                 });
                             }
                         });
@@ -344,8 +293,6 @@
                     });
                 }
             },
-            
-            // API Functions
             async fetchOrders() {
                 try {
                     let url = `${this.apiUrl}orders?`;
@@ -358,28 +305,18 @@
                 } catch(e){}
             },
             resetFilters() { this.filters.store = ''; this.filters.dateRange = ''; if(this.orderDateInstance) this.orderDateInstance.clear(); this.fetchOrders(); },
-            
             async fetchUsers() { try { const r = await fetch(`${this.apiUrl}users`); this.users = await r.json(); this.pages.users = 1; } catch(e){} },
             async fetchInventory() { try { const r = await fetch(`${this.apiUrl}admin/products`); this.inventory = await r.json(); this.pages.inventory = 1; this.pages.configProducts = 1; } catch(e){} },
-            
-            // 👇 修改 fetchLogs：處理範圍
             async fetchLogs() { 
                 try { 
                     let url = `${this.apiUrl}admin/inventory_logs?`;
                     if (this.filters.logDateRange) {
                         const dates = this.filters.logDateRange.split(' to ');
-                        if (dates.length >= 1) { 
-                            const start = dates[0]; 
-                            const end = dates.length === 2 ? dates[1] : dates[0]; 
-                            url += `start_date=${start}&end_date=${end}&`; 
-                        }
+                        if (dates.length >= 1) { const start = dates[0]; const end = dates.length === 2 ? dates[1] : dates[0]; url += `start_date=${start}&end_date=${end}&`; }
                     }
-                    const r = await fetch(url); 
-                    this.inventoryLogs = await r.json(); 
-                    this.pages.logs = 1; 
+                    const r = await fetch(url); this.inventoryLogs = await r.json(); this.pages.logs = 1; 
                 } catch(e){} 
             },
-
             async fetchProductLogs() { try { const r = await fetch(`${this.apiUrl}admin/product_logs`); this.productLogs = await r.json(); this.pages.configLogs = 1; } catch(e){} },
             async fetchUnits(pid) { try { const r = await fetch(`${this.apiUrl}admin/products/${pid}/units`); this.productUnits = await r.json(); } catch(e){} },
             exportToExcel() { if (this.orders.length === 0) return; let csv = "\ufeff時間,編號,分店,商品,數量,重量\n"; this.orders.forEach(r => csv += `${r.time},${r.order_no},${r.store},${r.product},${r.qty},${r.total_weight}\n`); const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `訂單報表.csv`; link.click(); },
