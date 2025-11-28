@@ -144,10 +144,10 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="fw-bold text-dark">📅 進出貨歷史紀錄</h4>
                 <div class="d-flex align-items-center">
-                    <label class="me-2 text-muted fw-bold">月份:</label>
-                    <div class="input-group" style="width: 200px;">
+                    <label class="me-2 text-muted fw-bold">日期範圍:</label>
+                    <div class="input-group" style="width: 250px;">
                         <span class="input-group-text bg-white">📅</span>
-                        <input type="text" id="monthPicker" class="form-control bg-white" placeholder="選擇日期" readonly>
+                        <input type="text" id="logDatePicker" class="form-control bg-white" placeholder="點擊選擇範圍..." readonly>
                     </div>
                 </div>
             </div>
@@ -161,7 +161,7 @@
                             <td class="fw-bold" :class="log.qty > 0 ? 'text-success' : 'text-danger'">{{ log.qty > 0 ? '+' : '' }}{{ log.qty }} {{ log.unit }}</td>
                             <td class="text-muted small">{{ log.note }}</td>
                         </tr>
-                        <tr v-if="inventoryLogs.length === 0"><td colspan="4" class="text-center py-3 text-muted">本月無紀錄</td></tr>
+                        <tr v-if="inventoryLogs.length === 0"><td colspan="4" class="text-center py-3 text-muted">此期間無紀錄</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -244,21 +244,16 @@
 
 </div>
 
-<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://npmcdn.com/flatpickr/dist/l10n/zh_tw.js"></script>
-
 <script>
     const { createApp } = Vue
 
     createApp({
         data() {
             return {
-                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改成你的網址！
+                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改網址！
                 currentTab: 'orders',
                 
-                // 原始數據
+                // 數據
                 orders: [], users: [], inventory: [], inventoryLogs: [], productUnits: [], productLogs: [],
                 newUser: { username: '', password: '', display_name: '' },
                 restockForm: { quantity: '', note: '' },
@@ -266,43 +261,35 @@
                 newUnit: { name: '', rate: '' },
                 
                 selectedProduct: null,
-                selectedMonth: new Date().toISOString().slice(0, 7),
-                filters: { store: '', dateRange: '' },
                 
-                // 👇 分頁設定 (Pagination Settings)
-                pages: {
-                    orders: 1,
-                    users: 1,
-                    inventory: 1,
-                    logs: 1,
-                    configProducts: 1,
-                    configLogs: 1
+                // 👇 篩選變數
+                filters: { 
+                    store: '', 
+                    dateRange: '',      // 訂單用的範圍
+                    logDateRange: ''    // 倉儲紀錄用的範圍 (New)
                 },
-                limits: {
-                    orders: 30,
-                    users: 10,
-                    inventory: 10,
-                    logs: 20,
-                    configProducts: 10,
-                    configLogs: 50
-                },
+                
+                // 分頁設定
+                pages: { orders: 1, users: 1, inventory: 1, logs: 1, configProducts: 1, configLogs: 1 },
+                limits: { orders: 30, users: 10, inventory: 10, logs: 20, configProducts: 10, configLogs: 50 },
 
                 // 實例
                 userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, 
-                flatpickrInstance: null, orderDateInstance: null
+                flatpickrInstance: null, // 這是倉儲紀錄日曆
+                orderDateInstance: null  // 這是訂單日曆
             }
         },
-        // 👇 核心邏輯：計算分頁數據
         computed: {
             paginatedOrders() { return this.paginate(this.orders, this.pages.orders, this.limits.orders); },
             paginatedUsers() { return this.paginate(this.users, this.pages.users, this.limits.users); },
             paginatedInventory() { return this.paginate(this.inventory, this.pages.inventory, this.limits.inventory); },
             paginatedLogs() { return this.paginate(this.inventoryLogs, this.pages.logs, this.limits.logs); },
-            paginatedConfigProducts() { return this.paginate(this.inventory, this.pages.configProducts, this.limits.configProducts); }, // 注意：共用 inventory 數據但用不同分頁
+            paginatedConfigProducts() { return this.paginate(this.inventory, this.pages.configProducts, this.limits.configProducts); },
             paginatedConfigLogs() { return this.paginate(this.productLogs, this.pages.configLogs, this.limits.configLogs); }
         },
         mounted() {
-            this.fetchUsers(); this.fetchOrders();
+            this.fetchUsers(); 
+            this.fetchOrders();
             this.userModalInstance = new bootstrap.Modal(document.getElementById('userModal'));
             this.restockModalInstance = new bootstrap.Modal(document.getElementById('restockModal'));
             this.newProductModalInstance = new bootstrap.Modal(document.getElementById('newProductModal'));
@@ -310,11 +297,7 @@
             this.initOrderCalendar();
         },
         methods: {
-            // 👇 分頁輔助函數
-            paginate(items, page, limit) {
-                const start = (page - 1) * limit;
-                return items.slice(start, start + limit);
-            },
+            paginate(items, page, limit) { const start = (page - 1) * limit; return items.slice(start, start + limit); },
 
             switchTab(tab) {
                 this.currentTab = tab;
@@ -323,15 +306,28 @@
                 if (tab === 'inventory' || tab === 'products') {
                     this.fetchInventory(); 
                     if(tab === 'products') this.fetchProductLogs();
+                    
                     if(tab === 'inventory') {
-                        this.fetchLogs();
+                        // 這裡不需急著 fetchLogs，因為日曆初始化會觸發 onChange，到時會自己 fetch
+                        // 但為了體驗，如果 filters.logDateRange 是空的，我們可以先 fetch 全部(最近)
+                        if(!this.filters.logDateRange) this.fetchLogs();
+
                         this.$nextTick(() => {
                             if (this.flatpickrInstance) { this.flatpickrInstance.destroy(); this.flatpickrInstance = null; }
-                            const pickerElement = document.getElementById("monthPicker");
+                            
+                            // 👇 ID 改成了 logDatePicker
+                            const pickerElement = document.getElementById("logDatePicker");
                             if (pickerElement) {
                                 this.flatpickrInstance = flatpickr(pickerElement, {
-                                    locale: "zh_tw", defaultDate: this.selectedMonth, disableMobile: true,
-                                    onChange: (d, s) => { this.selectedMonth = s.slice(0, 7); this.fetchLogs(); }
+                                    locale: "zh_tw", 
+                                    mode: "range",      // 👈 改成 Range 模式
+                                    dateFormat: "Y-m-d",
+                                    disableMobile: true,
+                                    defaultDate: this.filters.logDateRange, // 記住上次選的
+                                    onChange: (d, s) => { 
+                                        this.filters.logDateRange = s; 
+                                        this.fetchLogs(); // 選完即刻搜尋
+                                    }
                                 });
                             }
                         });
@@ -349,7 +345,7 @@
                 }
             },
             
-            // API Functions (加入：每次 fetch 新數據都重置頁碼回第1頁)
+            // API Functions
             async fetchOrders() {
                 try {
                     let url = `${this.apiUrl}orders?`;
@@ -358,17 +354,33 @@
                         const dates = this.filters.dateRange.split(' to ');
                         if (dates.length >= 1) { const start = dates[0]; const end = dates.length === 2 ? dates[1] : dates[0]; url += `start_date=${start}&end_date=${end}&`; }
                     }
-                    const r = await fetch(url); this.orders = await r.json();
-                    this.pages.orders = 1; // 👈 搜尋後回第1頁
+                    const r = await fetch(url); this.orders = await r.json(); this.pages.orders = 1;
                 } catch(e){}
             },
             resetFilters() { this.filters.store = ''; this.filters.dateRange = ''; if(this.orderDateInstance) this.orderDateInstance.clear(); this.fetchOrders(); },
             
             async fetchUsers() { try { const r = await fetch(`${this.apiUrl}users`); this.users = await r.json(); this.pages.users = 1; } catch(e){} },
             async fetchInventory() { try { const r = await fetch(`${this.apiUrl}admin/products`); this.inventory = await r.json(); this.pages.inventory = 1; this.pages.configProducts = 1; } catch(e){} },
-            async fetchLogs() { try { const r = await fetch(`${this.apiUrl}admin/inventory_logs?month=${this.selectedMonth}`); this.inventoryLogs = await r.json(); this.pages.logs = 1; } catch(e){} },
-            async fetchProductLogs() { try { const r = await fetch(`${this.apiUrl}admin/product_logs`); this.productLogs = await r.json(); this.pages.configLogs = 1; } catch(e){} },
             
+            // 👇 修改 fetchLogs：處理範圍
+            async fetchLogs() { 
+                try { 
+                    let url = `${this.apiUrl}admin/inventory_logs?`;
+                    if (this.filters.logDateRange) {
+                        const dates = this.filters.logDateRange.split(' to ');
+                        if (dates.length >= 1) { 
+                            const start = dates[0]; 
+                            const end = dates.length === 2 ? dates[1] : dates[0]; 
+                            url += `start_date=${start}&end_date=${end}&`; 
+                        }
+                    }
+                    const r = await fetch(url); 
+                    this.inventoryLogs = await r.json(); 
+                    this.pages.logs = 1; 
+                } catch(e){} 
+            },
+
+            async fetchProductLogs() { try { const r = await fetch(`${this.apiUrl}admin/product_logs`); this.productLogs = await r.json(); this.pages.configLogs = 1; } catch(e){} },
             async fetchUnits(pid) { try { const r = await fetch(`${this.apiUrl}admin/products/${pid}/units`); this.productUnits = await r.json(); } catch(e){} },
             exportToExcel() { if (this.orders.length === 0) return; let csv = "\ufeff時間,編號,分店,商品,數量,重量\n"; this.orders.forEach(r => csv += `${r.time},${r.order_no},${r.store},${r.product},${r.qty},${r.total_weight}\n`); const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `訂單報表.csv`; link.click(); },
             

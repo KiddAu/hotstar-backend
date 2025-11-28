@@ -432,13 +432,13 @@ def restock_product(data: RestockSchema):
         cursor.close()
         conn.close()
 
-# 12. 獲取庫存變動紀錄 (支援月份篩選)
+# 12. 獲取庫存變動紀錄 (已升級：支援日期範圍)
 @app.get("/admin/inventory_logs")
-def get_inventory_logs(month: str = None): 
-    # month 格式預期為 "2025-11"
+def get_inventory_logs(start_date: str = None, end_date: str = None): 
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     
+    # 基礎 SQL
     sql = """
         SELECT 
             to_char(l.created_at + interval '8 hours', 'YYYY-MM-DD HH24:MI') as log_time,
@@ -448,15 +448,21 @@ def get_inventory_logs(month: str = None):
             l.note
         FROM inventory_logs l
         JOIN products p ON l.product_id = p.id
+        WHERE 1=1
     """
     
-    # 如果有傳月份過來，就加 Filter
-    if month:
-        sql += f" WHERE to_char(l.created_at + interval '8 hours', 'YYYY-MM') = '{month}'"
+    params = []
+    
+    # 👇 如果有傳入日期範圍
+    if start_date and end_date:
+        # SQL: 檢查紀錄時間 (HKT) 是否在範圍內
+        sql += " AND (l.created_at + interval '8 hours')::date BETWEEN %s AND %s"
+        params.append(start_date)
+        params.append(end_date)
     
     sql += " ORDER BY l.created_at DESC"
     
-    cursor.execute(sql)
+    cursor.execute(sql, tuple(params))
     rows = cursor.fetchall()
     
     logs = []
