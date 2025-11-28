@@ -222,3 +222,14 @@
             // Inventory Actions
             openRestockModal(p) { this.selectedProduct = p; this.restockForm={quantity:'', note:''}; this.restockModalInstance.show(); },
             async submitRestock() {
+                if(!this.restockForm.quantity) return;
+                try {
+                    const r = await fetch(`${this.apiUrl}restock`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({product_id:this.selectedProduct.id, quantity:this.restockForm.quantity, note:this.restockForm.note})});
+                    if(r.ok) { this.restockModalInstance.hide(); this.fetchInventory(); this.fetchLogs(); alert('成功更新'); } else { alert('失敗'); }
+                } catch(e){}
+            }
+        }
+    }).mount('#app')
+</script>
+</body>
+</html>
