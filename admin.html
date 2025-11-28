@@ -147,6 +147,44 @@
                     </tbody>
                 </table>
             </div>
+
+            <hr class="my-5">
+            
+            <h4 class="fw-bold text-dark mb-3">🛠️ 配置變更紀錄 (最近 50 筆)</h4>
+            
+            <div class="table-responsive">
+                <table class="table table-striped align-middle border">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th style="width: 180px;">操作時間</th>
+                            <th style="width: 150px;">相關產品</th>
+                            <th style="width: 120px;">動作</th>
+                            <th>詳細內容</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="log in productLogs" :key="log.time">
+                            <td class="small text-muted">{{ log.time }}</td>
+                            <td class="fw-bold">{{ log.product }}</td>
+                            <td>
+                                <span class="badge" 
+                                    :class="{
+                                        'bg-primary': log.action === '新增產品',
+                                        'bg-warning text-dark': log.action === '狀態變更',
+                                        'bg-info text-dark': log.action === '新增單位',
+                                        'bg-danger': log.action === '刪除單位'
+                                    }">
+                                    {{ log.action }}
+                                </span>
+                            </td>
+                            <td class="small">{{ log.details }}</td>
+                        </tr>
+                        <tr v-if="productLogs.length === 0">
+                            <td colspan="4" class="text-center py-3 text-muted">暫無配置變更紀錄</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
     </div>
@@ -184,6 +222,7 @@
                 
                 selectedProduct: null,
                 selectedMonth: new Date().toISOString().slice(0, 7),
+                productLogs: [],
                 
                 // 實例
                 userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, flatpickrInstance: null
@@ -215,6 +254,7 @@
                             }
                         });
                     }
+                    if(tab === 'products') { this.fetchProductLogs(); }
                 }
             },
             
@@ -232,6 +272,12 @@
                 } catch(e){} 
             },
             async fetchLogs() { try { const r = await fetch(`${this.apiUrl}admin/inventory_logs?month=${this.selectedMonth}`); this.inventoryLogs = await r.json(); } catch(e){} },
+            async fetchProductLogs() {
+                try {
+                    const r = await fetch(`${this.apiUrl}admin/product_logs`);
+                    this.productLogs = await r.json();
+                } catch(e) {}
+            },
             async fetchUnits(pid) { try { const r = await fetch(`${this.apiUrl}admin/products/${pid}/units`); this.productUnits = await r.json(); } catch(e){} },
 
             exportToExcel() {
@@ -258,12 +304,12 @@
             async createProduct() {
                 try {
                     const r = await fetch(`${this.apiUrl}admin/products/create`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.newProduct)});
-                    if(r.ok) { this.newProductModalInstance.hide(); this.newProduct={name:'',sku:'',base_unit:''}; this.fetchInventory(); alert('成功建立'); }
+                    if(r.ok) { this.newProductModalInstance.hide(); this.newProduct={name:'',sku:'',base_unit:''}; this.fetchInventory(); this.fetchProductLogs(); alert('成功建立'); }
                 } catch(e){}
             },
             async toggleProduct(p) {
                 if(!confirm(`確定要${p.is_active!==false?'下架':'上架'}嗎?`)) return;
-                try { const r = await fetch(`${this.apiUrl}admin/products/${p.id}/toggle`, {method:'PUT'}); if(r.ok) { this.fetchInventory(); } } catch(e){}
+                try { const r = await fetch(`${this.apiUrl}admin/products/${p.id}/toggle`, {method:'PUT'}); if(r.ok) { this.fetchInventory(); this.fetchProductLogs(); } } catch(e){}
             },
             openUnitModal(p) {
                 this.selectedProduct = p;
@@ -275,12 +321,12 @@
                 if(!this.newUnit.name || !this.newUnit.rate) return;
                 try {
                     const r = await fetch(`${this.apiUrl}admin/units/create`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({product_id:this.selectedProduct.id, unit_name:this.newUnit.name, conversion_rate:this.newUnit.rate})});
-                    if(r.ok) { this.newUnit={name:'', rate:''}; this.fetchUnits(this.selectedProduct.id); } // 刷新單位列表
+                    if(r.ok) { this.newUnit={name:'', rate:''}; this.fetchUnits(this.selectedProduct.id); this.fetchProductLogs(); } // 刷新單位列表
                 } catch(e){}
             },
             async deleteUnit(uid) {
                 if(!confirm("確定刪除此單位?")) return;
-                try { const r = await fetch(`${this.apiUrl}admin/units/${uid}`, {method:'DELETE'}); if(r.ok) { this.fetchUnits(this.selectedProduct.id); } else { alert("刪除失敗: 可能有訂單使用中"); } } catch(e){}
+                try { const r = await fetch(`${this.apiUrl}admin/units/${uid}`, {method:'DELETE'}); if(r.ok) { this.fetchUnits(this.selectedProduct.id); this.fetchProductLogs(); } else { alert("刪除失敗: 可能有訂單使用中"); } } catch(e){}
             }
         }
     }).mount('#app')

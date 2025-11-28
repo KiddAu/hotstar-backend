@@ -361,7 +361,8 @@ def get_admin_products():
             "name": row[1],
             "sku": row[2],
             "current_stock": row[3],
-            "base_unit": row[4]
+            "base_unit": row[4],
+            "is_active": row[5]
         })
     cursor.close()
     conn.close()
@@ -464,6 +465,13 @@ def create_product(data: CreateProductSchema):
             (data.name, data.sku, data.base_unit)
         )
         new_prod = cursor.fetchone()
+
+        # 👇 寫入日誌
+        cursor.execute(
+            "INSERT INTO product_config_logs (product_name, action_type, details) VALUES (%s, %s, %s)",
+            (new_prod[1], "新增產品", f"建立新商品 SKU: {data.sku}, 基準單位: {data.base_unit}")
+        )
+
         conn.commit()
         return {"status": "success", "message": f"成功新增產品: {new_prod[1]}"}
     except Exception as e:
@@ -481,8 +489,15 @@ def toggle_product(product_id: int):
     try:
         cursor.execute("UPDATE products SET is_active = NOT is_active WHERE id = %s RETURNING name, is_active", (product_id,))
         res = cursor.fetchone()
-        conn.commit()
         status = "上架" if res[1] else "下架"
+
+        # 👇 寫入日誌
+        cursor.execute(
+            "INSERT INTO product_config_logs (product_name, action_type, details) VALUES (%s, %s, %s)",
+            (res[0], "狀態變更", f"將商品狀態更改為: {status}")
+        )
+
+        conn.commit()
         return {"status": "success", "message": f"[{res[0]}] 已{status}"}
     finally:
         cursor.close()
@@ -512,6 +527,13 @@ def create_unit(data: CreateUnitSchema):
             "INSERT INTO product_units (product_id, unit_name, conversion_rate) VALUES (%s, %s, %s)",
             (data.product_id, data.unit_name, data.conversion_rate)
         )
+
+        # 👇 寫入日誌
+        cursor.execute(
+            "INSERT INTO product_config_logs (product_name, action_type, details) VALUES (%s, %s, %s)",
+            (prod[0], "新增單位", f"新增銷售單位: {data.unit_name} (1{data.unit_name} = {data.conversion_rate}{prod[1]})")
+        )
+
         conn.commit()
         return {"status": "success", "message": "成功新增單位"}
     except Exception as e:
@@ -528,6 +550,13 @@ def delete_unit(unit_id: int):
     cursor = conn.cursor()
     try:
         cursor.execute("DELETE FROM product_units WHERE id = %s", (unit_id,))
+
+        # 👇 寫入日誌
+        cursor.execute(
+            "INSERT INTO product_config_logs (product_name, action_type, details) VALUES (%s, %s, %s)",
+            (info[0], "刪除單位", f"刪除了單位: {info[1]}")
+        )
+
         conn.commit()
         return {"status": "success", "message": "已刪除單位"}
     except Exception as e:
@@ -536,3 +565,23 @@ def delete_unit(unit_id: int):
     finally:
         cursor.close()
         conn.close()
+
+# 18. 獲取產品配置日誌
+@app.get("/admin/product_logs")
+def get_product_logs():
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    cursor.execute("SELECT to_char(created_at, 'YYYY-MM-DD HH24:MI'), product_name, action_type, details FROM product_config_logs ORDER BY created_at DESC LIMIT 50")
+    rows = cursor.fetchall()
+    
+    logs = []
+    for row in rows:
+        logs.append({
+            "time": row[0],
+            "product": row[1],
+            "action": row[2],
+            "details": row[3]
+        })
+    cursor.close()
+    conn.close()
+    return logs
