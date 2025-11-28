@@ -241,19 +241,18 @@ def create_order(order: BatchOrderSchema):
         cursor.close()
         conn.close()
         
-# 3. 後台查詢訂單 API (已升級：支援日期範圍篩選)
+# 3. 後台查詢訂單 API (已升級：將 Item 歸戶，一張單一行)
 @app.get("/orders")
 def get_orders(
     store: str = None, 
     start_date: str = None, 
     end_date: str = None, 
-    current_user: str = Depends(get_current_admin)):
-    # start_date / end_date 格式: YYYY-MM-DD
-    
+    current_user: str = Depends(get_current_admin)
+):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     
-    # 基礎 SQL
+    # 1. 查詢所有符合條件的訂單明細
     sql = """
         SELECT 
             o.order_number, 
@@ -272,34 +271,51 @@ def get_orders(
     
     params = []
     
-    # 分店篩選
     if store:
         sql += " AND o.store_name ILIKE %s"
         params.append(f"%{store}%")
         
-    # 👇 日期範圍篩選 (核心修改)
     if start_date and end_date:
-        # SQL: 檢查訂單日期是否在 start_date 00:00:00 到 end_date 23:59:59 之間
-        # 注意：我們比對的是「香港時間」
         sql += " AND (o.order_date + interval '8 hours')::date BETWEEN %s AND %s"
         params.append(start_date)
         params.append(end_date)
     
+    # 按照時間倒序，確保最新的單在最前
     sql += " ORDER BY o.order_date DESC"
     
     cursor.execute(sql, tuple(params))
     rows = cursor.fetchall()
     
-    results = []
+    # 2. Python 處理數據分組 (Grouping)
+    orders_dict = {}
+    
     for row in rows:
-        results.append({
-            "order_no": row[0],
-            "store": row[1],
-            "time": row[2],
+        order_no = row[0]
+        
+        # 如果這張單還沒在字典裡，先建立基本資料
+        if order_no not in orders_dict:
+            orders_dict[order_no] = {
+                "order_no": order_no,
+                "store": row[1],
+                "time": row[2],
+                "items": [],          # 準備放商品明細
+                "total_weight": 0.0,  # 準備算總重
+                "items_count": 0      # 準備算買了幾樣野
+            }
+        
+        # 將商品加入這張單的 items 列表
+        orders_dict[order_no]["items"].append({
             "product": row[3],
-            "qty": f"{row[4]} {row[5]}",
-            "total_weight": f"{row[6]} KG"
+            "qty": f"{float(row[4]):g} {row[5]}", # 例如: 5 箱
+            "weight": float(row[6])
         })
+        
+        # 累加總重
+        orders_dict[order_no]["total_weight"] += float(row[6])
+        orders_dict[order_no]["items_count"] += 1
+
+    # 3. 轉回 List 格式回傳
+    results = list(orders_dict.values())
     
     cursor.close()
     conn.close()
