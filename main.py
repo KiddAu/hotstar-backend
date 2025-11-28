@@ -48,6 +48,18 @@ class RestockSchema(BaseModel):
     quantity: float  # 可以係正數 (入貨) 或 負數 (盤點扣除)
     note: str        # 備註 (例如: 供應商入貨 / 盤點損耗)
 
+# 定義產品格式
+class CreateProductSchema(BaseModel):
+    name: str
+    sku: str
+    base_unit: str # 例如 KG, L, 個
+
+# 定義產品單位格式
+class CreateUnitSchema(BaseModel):
+    product_id: int
+    unit_name: str      # 例如: 箱
+    conversion_rate: float # 例如: 20
+
 @app.get("/")
 def home():
     return {"message": "豪大大系統"}
@@ -339,7 +351,7 @@ def get_admin_products():
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     # 直接查 products 表，唔需要 Join 單位表
-    cursor.execute("SELECT id, name, sku, current_stock, base_unit FROM products ORDER BY id ASC")
+    cursor.execute("SELECT id, name, sku, current_stock, base_unit, is_active FROM products ORDER BY id ASC")
     rows = cursor.fetchall()
     
     products = []
@@ -436,3 +448,91 @@ def get_inventory_logs(month: str = None):
     cursor.close()
     conn.close()
     return logs
+
+# ==========================
+# 產品管理 API (Admin)
+# ==========================
+
+# 13. 新增產品 (基礎資料)
+@app.post("/admin/products/create")
+def create_product(data: CreateProductSchema):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO products (name, sku, base_unit) VALUES (%s, %s, %s) RETURNING id, name",
+            (data.name, data.sku, data.base_unit)
+        )
+        new_prod = cursor.fetchone()
+        conn.commit()
+        return {"status": "success", "message": f"成功新增產品: {new_prod[1]}"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+# 14. 產品上下架 (切換狀態)
+@app.put("/admin/products/{product_id}/toggle")
+def toggle_product(product_id: int):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE products SET is_active = NOT is_active WHERE id = %s RETURNING name, is_active", (product_id,))
+        res = cursor.fetchone()
+        conn.commit()
+        status = "上架" if res[1] else "下架"
+        return {"status": "success", "message": f"[{res[0]}] 已{status}"}
+    finally:
+        cursor.close()
+        conn.close()
+
+# 15. 獲取某產品的所有單位 (用於編輯)
+@app.get("/admin/products/{product_id}/units")
+def get_product_units(product_id: int):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, unit_name, conversion_rate FROM product_units WHERE product_id = %s ORDER BY conversion_rate DESC", (product_id,))
+    rows = cursor.fetchall()
+    units = []
+    for row in rows:
+        units.append({"id": row[0], "name": row[1], "rate": float(row[2])})
+    cursor.close()
+    conn.close()
+    return units
+
+# 16. 新增單位 (例如為雞胸加一個「箱」的單位)
+@app.post("/admin/units/create")
+def create_unit(data: CreateUnitSchema):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO product_units (product_id, unit_name, conversion_rate) VALUES (%s, %s, %s)",
+            (data.product_id, data.unit_name, data.conversion_rate)
+        )
+        conn.commit()
+        return {"status": "success", "message": "成功新增單位"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+# 17. 刪除單位
+@app.delete("/admin/units/{unit_id}")
+def delete_unit(unit_id: int):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM product_units WHERE id = %s", (unit_id,))
+        conn.commit()
+        return {"status": "success", "message": "已刪除單位"}
+    except Exception as e:
+        conn.rollback() # 可能是因為有訂單關聯，刪唔到
+        raise HTTPException(status_code=400, detail="刪除失敗，可能已有訂單使用此單位")
+    finally:
+        cursor.close()
+        conn.close()

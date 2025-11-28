@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>豪大大 - 總部管理系統</title>
-    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    
     <style>
         body { background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; }
         .nav-tabs .nav-link.active { background-color: #fff; border-bottom-color: #fff; font-weight: bold; color: #0d6efd; }
@@ -22,13 +20,14 @@
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-dark">🍗 豪大大總部系統</h2>
-        <span class="badge bg-secondary">Admin Panel v2.1</span>
+        <span class="badge bg-secondary">Admin Panel v3.0</span>
     </div>
 
     <ul class="nav nav-tabs">
-        <li class="nav-item"><a class="nav-link" :class="{ active: currentTab === 'orders' }" @click="currentTab = 'orders'">📋 訂單紀錄</a></li>
-        <li class="nav-item"><a class="nav-link" :class="{ active: currentTab === 'users' }" @click="switchTab('users')">👥 分店帳號管理</a></li>
+        <li class="nav-item"><a class="nav-link" :class="{ active: currentTab === 'orders' }" @click="switchTab('orders')">📋 訂單紀錄</a></li>
+        <li class="nav-item"><a class="nav-link" :class="{ active: currentTab === 'users' }" @click="switchTab('users')">👥 分店帳號</a></li>
         <li class="nav-item"><a class="nav-link" :class="{ active: currentTab === 'inventory' }" @click="switchTab('inventory')">📦 倉儲管理</a></li>
+        <li class="nav-item"><a class="nav-link" :class="{ active: currentTab === 'products' }" @click="switchTab('products')">⚙️ 商品配置</a></li>
     </ul>
 
     <div class="table-card p-4 shadow-sm bg-white" v-cloak>
@@ -40,16 +39,11 @@
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr><th>時間</th><th>編號</th><th>分店</th><th>商品</th><th>數量</th><th>狀態</th></tr>
-                    </thead>
+                    <thead class="table-light"><tr><th>時間</th><th>編號</th><th>分店</th><th>商品</th><th>數量</th><th>狀態</th></tr></thead>
                     <tbody>
                         <tr v-for="order in orders" :key="order.order_no">
-                            <td class="small text-muted">{{ order.time }}</td>
-                            <td class="fw-bold text-primary small">{{ order.order_no }}</td>
-                            <td>{{ order.store }}</td>
-                            <td>{{ order.product }}</td>
-                            <td class="fw-bold">{{ order.qty }}</td>
+                            <td class="small text-muted">{{ order.time }}</td><td class="fw-bold text-primary small">{{ order.order_no }}</td>
+                            <td>{{ order.store }}</td><td>{{ order.product }}</td><td class="fw-bold">{{ order.qty }}</td>
                             <td><span class="badge bg-success">已確認</span></td>
                         </tr>
                         <tr v-if="orders.length === 0"><td colspan="6" class="text-center text-muted">暫無訂單</td></tr>
@@ -60,29 +54,17 @@
 
         <div v-if="currentTab === 'users'">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <p class="text-muted mb-0 small">管理各分店權限。</p>
+                <p class="text-muted mb-0 small">管理分店權限。</p>
                 <button class="btn btn-warning btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#userModal">➕ 新增帳號</button>
             </div>
             <div class="table-responsive">
                 <table class="table align-middle">
-                    <thead class="table-light">
-                        <tr><th>ID</th><th>帳號</th><th>分店名稱</th><th>狀態</th><th>操作</th><th>密碼</th></tr>
-                    </thead>
+                    <thead class="table-light"><tr><th>ID</th><th>帳號</th><th>分店名稱</th><th>狀態</th><th>操作</th><th>密碼</th></tr></thead>
                     <tbody>
                         <tr v-for="user in users" :key="user.id" :class="{'table-secondary': !user.is_active}">
-                            <td>{{ user.id }}</td>
-                            <td class="fw-bold">{{ user.username }}</td>
-                            <td>{{ user.display_name }}</td>
-                            <td>
-                                <span v-if="!user.is_active" class="badge bg-secondary">停用</span>
-                                <span v-else-if="user.is_reset_needed" class="badge bg-warning text-dark">待改密碼</span>
-                                <span v-else class="badge bg-success">正常</span>
-                            </td>
-                            <td>
-                                <button class="btn btn-sm" :class="user.is_active ? 'btn-outline-danger' : 'btn-outline-success'" @click="toggleUser(user)">
-                                    {{ user.is_active ? '⛔ 停用' : '✅ 啟用' }}
-                                </button>
-                            </td>
+                            <td>{{ user.id }}</td><td class="fw-bold">{{ user.username }}</td><td>{{ user.display_name }}</td>
+                            <td><span v-if="!user.is_active" class="badge bg-secondary">停用</span><span v-else-if="user.is_reset_needed" class="badge bg-warning text-dark">待改密碼</span><span v-else class="badge bg-success">正常</span></td>
+                            <td><button class="btn btn-sm" :class="user.is_active ? 'btn-outline-danger' : 'btn-outline-success'" @click="toggleUser(user)">{{ user.is_active ? '⛔ 停用' : '✅ 啟用' }}</button></td>
                             <td><button class="btn btn-sm btn-outline-dark" @click="resetPassword(user)">🔄 重置</button></td>
                         </tr>
                     </tbody>
@@ -95,29 +77,21 @@
                 <p class="text-muted mb-0 small">管理總倉庫存。</p>
                 <button class="btn btn-primary btn-sm" @click="fetchInventory">🔄 刷新</button>
             </div>
-
             <table class="table align-middle table-bordered mb-5">
-                <thead class="table-light">
-                    <tr><th>SKU</th><th>商品</th><th class="text-end">目前庫存</th><th>單位</th><th class="text-center">操作</th></tr>
-                </thead>
+                <thead class="table-light"><tr><th>SKU</th><th>商品</th><th class="text-end">目前庫存</th><th>單位</th><th class="text-center">操作</th></tr></thead>
                 <tbody>
                     <tr v-for="item in inventory" :key="item.id">
                         <td class="text-muted small font-monospace">{{ item.sku }}</td>
                         <td class="fw-bold">{{ item.name }}</td>
                         <td class="text-end fw-bold fs-5" :class="item.current_stock < 100 ? 'text-danger' : 'text-dark'">{{ item.current_stock }}</td>
                         <td class="text-muted">{{ item.base_unit }}</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-outline-primary" @click="openRestockModal(item)">📝 調整</button>
-                        </td>
+                        <td class="text-center"><button class="btn btn-sm btn-outline-primary" @click="openRestockModal(item)">📝 調整</button></td>
                     </tr>
                 </tbody>
             </table>
-
             <hr class="my-4">
-
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="fw-bold text-dark">📅 進出貨歷史紀錄</h4>
-                
                 <div class="d-flex align-items-center">
                     <label class="me-2 text-muted fw-bold">選擇月份:</label>
                     <div class="input-group" style="width: 250px;">
@@ -126,16 +100,12 @@
                     </div>
                 </div>
             </div>
-            
-            <p class="text-muted small text-end">💡 小貼士：點擊月份中的任意一日即可載入該月報表</p>
-
             <div class="table-responsive">
                 <table class="table table-striped align-middle">
                     <thead class="table-dark"><tr><th>時間</th><th>商品</th><th>變動</th><th>備註</th></tr></thead>
                     <tbody>
                         <tr v-for="log in inventoryLogs" :key="log.time">
-                            <td class="small">{{ log.time }}</td>
-                            <td>{{ log.product }}</td>
+                            <td class="small">{{ log.time }}</td><td>{{ log.product }}</td>
                             <td class="fw-bold" :class="log.qty > 0 ? 'text-success' : 'text-danger'">{{ log.qty > 0 ? '+' : '' }}{{ log.qty }} {{ log.unit }}</td>
                             <td class="text-muted small">{{ log.note }}</td>
                         </tr>
@@ -145,14 +115,49 @@
             </div>
         </div>
 
+        <div v-if="currentTab === 'products'">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="alert alert-info py-2 mb-0 small">
+                    <i class="bi bi-info-circle"></i> 此處設定店長可見的商品及下單單位。
+                </div>
+                <button class="btn btn-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#newProductModal">➕ 新增商品</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="table-light">
+                        <tr><th>ID</th><th>SKU</th><th>商品名稱</th><th>庫存單位 (Base)</th><th>狀態</th><th>操作</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in inventory" :key="item.id" :class="{'table-secondary': !item.is_active}">
+                            <td>{{ item.id }}</td>
+                            <td class="font-monospace text-muted">{{ item.sku }}</td>
+                            <td class="fw-bold">{{ item.name }}</td>
+                            <td>{{ item.base_unit }}</td>
+                            <td>
+                                <span v-if="item.is_active !== false" class="badge bg-success">上架中</span> <span v-else class="badge bg-secondary">已下架</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-dark me-2" @click="openUnitModal(item)">⚙️ 設定單位</button>
+                                <button class="btn btn-sm" :class="item.is_active !== false ? 'btn-outline-danger' : 'btn-outline-success'" @click="toggleProduct(item)">
+                                    {{ item.is_active !== false ? '🔽 下架' : '🔼 上架' }}
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
-    <div class="modal fade" id="userModal" tabindex="-1">
-        <div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-warning"><h5 class="modal-title">新增帳號</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form @submit.prevent="createUser"><div class="mb-3"><label>帳號</label><input type="text" class="form-control" v-model="newUser.username" required></div><div class="mb-3"><label>分店名</label><input type="text" class="form-control" v-model="newUser.display_name" required></div><div class="mb-3"><label>密碼</label><input type="text" class="form-control" v-model="newUser.password" required></div><button type="submit" class="btn btn-dark w-100">建立</button></form></div></div></div>
-    </div>
-    <div class="modal fade" id="restockModal" tabindex="-1">
-        <div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">庫存調整</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" v-if="selectedProduct"><h5 class="fw-bold">{{ selectedProduct.name }}</h5><p>目前: {{ selectedProduct.current_stock }} {{ selectedProduct.base_unit }}</p><form @submit.prevent="submitRestock"><div class="mb-3"><label>數量 ({{ selectedProduct.base_unit }})</label><input type="number" step="0.01" class="form-control" v-model.number="restockForm.quantity" placeholder="正數入貨，負數扣減" required></div><div class="mb-3"><label>備註</label><input type="text" class="form-control" v-model="restockForm.note"></div><button type="submit" class="btn btn-primary w-100">確認</button></form></div></div></div>
-    </div>
+    <div class="modal fade" id="userModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-warning"><h5 class="modal-title">新增帳號</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form @submit.prevent="createUser"><div class="mb-3"><label>帳號</label><input type="text" class="form-control" v-model="newUser.username" required></div><div class="mb-3"><label>分店名</label><input type="text" class="form-control" v-model="newUser.display_name" required></div><div class="mb-3"><label>密碼</label><input type="text" class="form-control" v-model="newUser.password" required></div><button type="submit" class="btn btn-dark w-100">建立</button></form></div></div></div></div>
+    
+    <div class="modal fade" id="restockModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">庫存調整</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" v-if="selectedProduct"><h5 class="fw-bold">{{ selectedProduct.name }}</h5><p>目前: {{ selectedProduct.current_stock }} {{ selectedProduct.base_unit }}</p><form @submit.prevent="submitRestock"><div class="mb-3"><label>數量 ({{ selectedProduct.base_unit }})</label><input type="number" step="0.01" class="form-control" v-model.number="restockForm.quantity" placeholder="正數入貨，負數扣減" required></div><div class="mb-3"><label>備註</label><input type="text" class="form-control" v-model="restockForm.note"></div><button type="submit" class="btn btn-primary w-100">確認</button></form></div></div></div></div>
+
+    <div class="modal fade" id="newProductModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">新增商品</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form @submit.prevent="createProduct"><div class="mb-3"><label>商品名稱</label><input type="text" class="form-control" v-model="newProduct.name" placeholder="例如: 薯條" required></div><div class="mb-3"><label>SKU 編號</label><input type="text" class="form-control" v-model="newProduct.sku" placeholder="例如: CK-FRY-001" required></div><div class="mb-3"><label>庫存基準單位</label><input type="text" class="form-control" v-model="newProduct.base_unit" placeholder="例如: KG" required><div class="form-text">這是總倉記帳用的最小單位</div></div><button type="submit" class="btn btn-primary w-100">建立商品</button></form></div></div></div></div>
+
+    <div class="modal fade" id="unitModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-dark text-white"><h5 class="modal-title">設定銷售單位</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" v-if="selectedProduct"><h5 class="mb-3">正在設定: <span class="text-primary">{{ selectedProduct.name }}</span></h5><p class="small text-muted">基準單位: {{ selectedProduct.base_unit }}</p><ul class="list-group mb-4"><li class="list-group-item d-flex justify-content-between align-items-center" v-for="u in productUnits" :key="u.id"><span><strong>{{ u.name }}</strong> (1{{ u.name }} = {{ u.rate }}{{ selectedProduct.base_unit }})</span><button class="btn btn-sm btn-outline-danger" @click="deleteUnit(u.id)">刪除</button></li><li v-if="productUnits.length === 0" class="list-group-item text-center text-muted">暫無單位，店長無法下單</li></ul><hr><h6 class="fw-bold">新增單位:</h6><div class="d-flex gap-2"><input type="text" class="form-control" placeholder="單位名 (如: 箱)" v-model="newUnit.name"><input type="number" class="form-control" placeholder="換算率 (如: 20)" v-model.number="newUnit.rate"><button class="btn btn-dark" @click="createUnit">新增</button></div></div></div></div></div>
 
 </div>
 
@@ -171,97 +176,111 @@
                 currentTab: 'orders',
                 
                 // 數據
-                orders: [], users: [], inventory: [], inventoryLogs: [],
+                orders: [], users: [], inventory: [], inventoryLogs: [], productUnits: [],
                 newUser: { username: '', password: '', display_name: '' },
                 restockForm: { quantity: '', note: '' },
+                newProduct: { name: '', sku: '', base_unit: '' }, // 新商品 form
+                newUnit: { name: '', rate: '' }, // 新單位 form
+                
                 selectedProduct: null,
                 selectedMonth: new Date().toISOString().slice(0, 7),
                 
                 // 實例
-                userModalInstance: null, restockModalInstance: null, flatpickrInstance: null
+                userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, flatpickrInstance: null
             }
         },
         mounted() {
             this.fetchOrders();
             this.userModalInstance = new bootstrap.Modal(document.getElementById('userModal'));
             this.restockModalInstance = new bootstrap.Modal(document.getElementById('restockModal'));
+            this.newProductModalInstance = new bootstrap.Modal(document.getElementById('newProductModal'));
+            this.unitModalInstance = new bootstrap.Modal(document.getElementById('unitModal'));
         },
         methods: {
             switchTab(tab) {
                 this.currentTab = tab;
-                
-                if (tab === 'users') {
-                    this.fetchUsers();
-                }
-                
-                if (tab === 'inventory') {
+                if (tab === 'users') this.fetchUsers();
+                if (tab === 'inventory' || tab === 'products') { // Tab 4 共用 inventory 數據
                     this.fetchInventory(); 
-                    this.fetchLogs();
-                    
-                    // 👇 修正邏輯：每次切換進來，都要強制重新綁定日曆
-                    this.$nextTick(() => {
-                        // 1. 如果舊的實例還在，先銷毀它 (清理垃圾)
-                        if (this.flatpickrInstance) {
-                            this.flatpickrInstance.destroy();
-                            this.flatpickrInstance = null;
-                        }
-
-                        // 2. 重新尋找頁面上的輸入框 (確保它存在)
-                        const pickerElement = document.getElementById("monthPicker");
-                        
-                        if (pickerElement) {
-                            // 3. 綁定新的日曆
-                            this.flatpickrInstance = flatpickr(pickerElement, {
-                                locale: "zh_tw",
-                                defaultDate: this.selectedMonth, // 記住上次選的月份
-                                disableMobile: true, // 強制在手機都彈出日曆介面，不用手機原生的
-                                onChange: (selectedDates, dateStr) => {
-                                    // 格式是 YYYY-MM-DD，我們只取前 7 個字
-                                    this.selectedMonth = dateStr.slice(0, 7);
-                                    this.fetchLogs();
-                                }
-                            });
-                        }
-                    });
+                    if(tab === 'inventory') {
+                        this.fetchLogs();
+                        this.$nextTick(() => {
+                            if (this.flatpickrInstance) { this.flatpickrInstance.destroy(); this.flatpickrInstance = null; }
+                            const pickerElement = document.getElementById("monthPicker");
+                            if (pickerElement) {
+                                this.flatpickrInstance = flatpickr(pickerElement, {
+                                    locale: "zh_tw", defaultDate: this.selectedMonth, disableMobile: true,
+                                    onChange: (d, s) => { this.selectedMonth = s.slice(0, 7); this.fetchLogs(); }
+                                });
+                            }
+                        });
+                    }
                 }
             },
             
-            // API Functions
+            // API calls
             async fetchOrders() { try { const r = await fetch(`${this.apiUrl}orders`); this.orders = await r.json(); } catch(e){} },
             async fetchUsers() { try { const r = await fetch(`${this.apiUrl}users`); this.users = await r.json(); } catch(e){} },
-            async fetchInventory() { try { const r = await fetch(`${this.apiUrl}admin/products`); this.inventory = await r.json(); } catch(e){} },
-            async fetchLogs() { 
+            async fetchInventory() { 
                 try { 
-                    const r = await fetch(`${this.apiUrl}admin/inventory_logs?month=${this.selectedMonth}`); 
-                    this.inventoryLogs = await r.json(); 
+                    // 這裡改了 API endpoint, 確保拿到 is_active 
+                    // (實際上 main.py 第10點的 get_admin_products 已經返回了所需欄位，如果要 is_active 要確保 SQL select 有寫)
+                    // 我地假設 main.py 的 get_admin_products 已經 select * 或者包含了 is_active
+                    // 如果 main.py 未加 is_active 落 SELECT，你需要去 main.py 改改 get_admin_products
+                    const r = await fetch(`${this.apiUrl}admin/products`); 
+                    this.inventory = await r.json(); 
                 } catch(e){} 
             },
-            
-            // 匯出 Excel
+            async fetchLogs() { try { const r = await fetch(`${this.apiUrl}admin/inventory_logs?month=${this.selectedMonth}`); this.inventoryLogs = await r.json(); } catch(e){} },
+            async fetchUnits(pid) { try { const r = await fetch(`${this.apiUrl}admin/products/${pid}/units`); this.productUnits = await r.json(); } catch(e){} },
+
             exportToExcel() {
-                if (this.orders.length === 0) { alert("無數據"); return; }
+                if (this.orders.length === 0) return;
                 let csv = "\ufeff時間,編號,分店,商品,數量,重量\n";
                 this.orders.forEach(r => csv += `${r.time},${r.order_no},${r.store},${r.product},${r.qty},${r.total_weight}\n`);
                 const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = `訂單報表_${new Date().toISOString().slice(0,10)}.csv`;
-                link.click();
+                const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `訂單報表.csv`; link.click();
             },
             
-            // User Actions
-            async createUser() { try { const r = await fetch(`${this.apiUrl}create_user`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.newUser)}); if(r.ok){ this.userModalInstance.hide(); this.fetchUsers(); alert('成功建立'); } else { alert('失敗'); } } catch(e){} },
+            // --- User Actions ---
+            async createUser() { try { const r = await fetch(`${this.apiUrl}create_user`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.newUser)}); if(r.ok){ this.userModalInstance.hide(); this.fetchUsers(); alert('成功'); } else { alert('失敗'); } } catch(e){} },
             async toggleUser(u) { if(confirm('確定?')) { await fetch(`${this.apiUrl}users/${u.id}/toggle`, {method:'PUT'}); u.is_active=!u.is_active; } },
-            async resetPassword(u) { if(confirm('確定重置?')) { await fetch(`${this.apiUrl}users/${u.id}/reset_password`, {method:'PUT'}); alert('已重置'); this.fetchUsers(); } },
-            
-            // Inventory Actions
+            async resetPassword(u) { if(confirm('重置?')) { await fetch(`${this.apiUrl}users/${u.id}/reset_password`, {method:'PUT'}); alert('已重置'); } },
+
+            // --- Inventory Actions ---
             openRestockModal(p) { this.selectedProduct = p; this.restockForm={quantity:'', note:''}; this.restockModalInstance.show(); },
             async submitRestock() {
                 if(!this.restockForm.quantity) return;
+                try { const r = await fetch(`${this.apiUrl}restock`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({product_id:this.selectedProduct.id, quantity:this.restockForm.quantity, note:this.restockForm.note})}); if(r.ok) { this.restockModalInstance.hide(); this.fetchInventory(); if(this.currentTab==='inventory')this.fetchLogs(); alert('成功'); } } catch(e){}
+            },
+
+            // --- Product Management Actions (New) ---
+            async createProduct() {
                 try {
-                    const r = await fetch(`${this.apiUrl}restock`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({product_id:this.selectedProduct.id, quantity:this.restockForm.quantity, note:this.restockForm.note})});
-                    if(r.ok) { this.restockModalInstance.hide(); this.fetchInventory(); this.fetchLogs(); alert('成功更新'); } else { alert('失敗'); }
+                    const r = await fetch(`${this.apiUrl}admin/products/create`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.newProduct)});
+                    if(r.ok) { this.newProductModalInstance.hide(); this.newProduct={name:'',sku:'',base_unit:''}; this.fetchInventory(); alert('成功建立'); }
                 } catch(e){}
+            },
+            async toggleProduct(p) {
+                if(!confirm(`確定要${p.is_active!==false?'下架':'上架'}嗎?`)) return;
+                try { const r = await fetch(`${this.apiUrl}admin/products/${p.id}/toggle`, {method:'PUT'}); if(r.ok) { this.fetchInventory(); } } catch(e){}
+            },
+            openUnitModal(p) {
+                this.selectedProduct = p;
+                this.newUnit = {name:'', rate:''};
+                this.fetchUnits(p.id); // 載入該產品的單位
+                this.unitModalInstance.show();
+            },
+            async createUnit() {
+                if(!this.newUnit.name || !this.newUnit.rate) return;
+                try {
+                    const r = await fetch(`${this.apiUrl}admin/units/create`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({product_id:this.selectedProduct.id, unit_name:this.newUnit.name, conversion_rate:this.newUnit.rate})});
+                    if(r.ok) { this.newUnit={name:'', rate:''}; this.fetchUnits(this.selectedProduct.id); } // 刷新單位列表
+                } catch(e){}
+            },
+            async deleteUnit(uid) {
+                if(!confirm("確定刪除此單位?")) return;
+                try { const r = await fetch(`${this.apiUrl}admin/units/${uid}`, {method:'DELETE'}); if(r.ok) { this.fetchUnits(this.selectedProduct.id); } else { alert("刪除失敗: 可能有訂單使用中"); } } catch(e){}
             }
         }
     }).mount('#app')
