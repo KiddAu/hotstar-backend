@@ -242,6 +242,8 @@
             initApp() {
                 this.$nextTick(() => {
                     this.fetchDashboardStats();
+                    this.fetchUsers();
+                    this.fetchOrders();
                     this.userModalInstance = new bootstrap.Modal(document.getElementById('userModal'));
                     this.restockModalInstance = new bootstrap.Modal(document.getElementById('restockModal'));
                     this.newProductModalInstance = new bootstrap.Modal(document.getElementById('newProductModal'));
