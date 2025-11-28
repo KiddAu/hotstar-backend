@@ -196,23 +196,30 @@
     createApp({
         data() {
             return {
-                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改網址
-                isLoggedIn: false, adminToken: '', adminName: '', loginForm: { username: '', password: '' }, loading: false, globalLoading: false,
+                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 請檢查網址是否正確
+                isLoggedIn: false, adminToken: '', adminName: '', 
+                loginForm: { username: '', password: '' }, 
+                loading: false, globalLoading: false,
                 currentTab: 'dashboard',
                 
                 // Data
                 stats: { kpi: { total_orders: 0, total_weight: 0, low_stock_count: 0 }, trend: { labels: [], values: [] }, top_products: { labels: [], values: [] }, top_stores: { labels: [], values: [] } },
                 orders: [], users: [], inventory: [], inventoryLogs: [], productUnits: [], productLogs: [],
-                newUser: { username: '', password: '', display_name: '' }, restockForm: { quantity: '', note: '' }, newProduct: { name: '', sku: '', base_unit: '' }, newUnit: { name: '', rate: '' },
+                newUser: { username: '', password: '', display_name: '' }, 
+                restockForm: { quantity: '', note: '' }, 
+                newProduct: { name: '', sku: '', base_unit: '' }, 
+                newUnit: { name: '', rate: '' },
                 
-                selectedProduct: null, selectedOrder: null, // New: 存儲當前點擊的訂單
+                selectedProduct: null, 
+                selectedOrder: null, 
                 selectedMonth: new Date().toISOString().slice(0, 7),
                 filters: { store: '', dateRange: '', logDateRange: '' },
                 
                 pages: { orders: 1, users: 1, inventory: 1, logs: 1, configProducts: 1, configLogs: 1 },
                 limits: { orders: 30, users: 10, inventory: 10, logs: 20, configProducts: 10, configLogs: 50 },
 
-                userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, orderDetailModalInstance: null, // New Modal
+                // Instances
+                userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, orderDetailModalInstance: null,
                 flatpickrInstance: null, orderDateInstance: null, charts: { trend: null, product: null, store: null }
             }
         },
@@ -226,96 +233,131 @@
         },
         mounted() {
             const t = localStorage.getItem('adminToken');
-            if(t) { this.adminToken=t; this.adminName=localStorage.getItem('adminName'); this.isLoggedIn=true; this.initApp(); }
+            if(t) { 
+                this.adminToken = t; 
+                this.adminName = localStorage.getItem('adminName'); 
+                this.isLoggedIn = true; 
+                this.initApp(); 
+            }
         },
         methods: {
-            // ... (authFetch, login, logout, paginate 等通用功能保持不變) ...
-            async authFetch(url, opt={}) { if(!opt.headers) opt.headers={}; opt.headers['Authorization']=`Bearer ${this.adminToken}`; try{ const r=await fetch(url,opt); if(r.status===401){ this.logout(); return null; } return r; }catch(e){ return null; } },
-            async login() { const f=new FormData(); f.append('username',this.loginForm.username); f.append('password',this.loginForm.password); const r=await fetch(`${this.apiUrl}admin/login`,{method:'POST',body:f}); if(r.ok){ const d=await r.json(); this.adminToken=d.access_token; this.adminName=this.loginForm.username; this.isLoggedIn=true; localStorage.setItem('adminToken',d.access_token); localStorage.setItem('adminName',this.adminName); this.initApp(); } else alert('失敗'); },
-            logout() { this.isLoggedIn=false; localStorage.clear(); },
-            initApp() {
-                this.$nextTick(() => {
-                    this.fetchDashboardStats(); this.fetchUsers(); this.fetchOrders();
-                    this.userModalInstance=new bootstrap.Modal(document.getElementById('userModal'));
-                    this.restockModalInstance=new bootstrap.Modal(document.getElementById('restockModal'));
-                    this.newProductModalInstance=new bootstrap.Modal(document.getElementById('newProductModal'));
-                    this.unitModalInstance=new bootstrap.Modal(document.getElementById('unitModal'));
-                    this.orderDetailModalInstance=new bootstrap.Modal(document.getElementById('orderDetailModal')); // New
-                    this.initOrderCalendar();
-                });
-            },
-            
-            // 👇 新增：打開訂單詳情 Modal
-            openOrderDetail(order) {
-                this.selectedOrder = order;
-                this.orderDetailModalInstance.show();
-            },
-
-            // 👇 新增：匯出單一訂單 (Excel/CSV)
-            exportSingleOrder(order) {
-                let csv = "\ufeff商品名稱,訂購數量,扣倉重量\n";
-                order.items.forEach(item => {
-                    csv += `${item.product},${item.qty},${item.weight} KG\n`;
-                });
-                csv += `\n,,總重量: ${order.total_weight} KG`;
-                
-                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = `${order.order_no}_${order.store}.csv`;
-                link.click();
-            },
-
-            // 👇 修改：匯出總表 (Export All) - 結構要改成配合新的 Grouping 格式
-            exportAllToExcel() {
-                if (this.orders.length === 0) return;
-                let csv = "\ufeff訂單時間,單號,分店,總件數,總重量,詳細內容\n";
-                
-                this.orders.forEach(o => {
-                    // 將詳細內容合併成一格字串
-                    let details = o.items.map(i => `${i.product} x${i.qty}`).join(" | ");
-                    csv += `${o.time},${o.order_no},${o.store},${o.items_count},${o.total_weight},${details}\n`;
-                });
-                
-                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = `訂單總表_${new Date().toISOString().slice(0,10)}.csv`;
-                link.click();
-            },
-
-            // ... (其他 switchTab, fetchUsers, fetchInventory, initOrderCalendar 等功能保持不變) ...
-            // 為確保完整性，請從 v7.0 複製剩下的 methods，或者只替換上面的部分
+            // --- 核心：Tab 切換邏輯 ---
             switchTab(tab) {
                 this.currentTab = tab;
-                if (tab === 'dashboard') { this.fetchDashboardStats(); }
-                if (tab === 'orders') { this.$nextTick(() => { this.initOrderCalendar(); }); }
-                if (tab === 'users') { this.fetchUsers(); }
+                
+                // 1. Dashboard
+                if (tab === 'dashboard') { 
+                    this.fetchDashboardStats(); 
+                }
+                
+                // 2. 訂單紀錄
+                if (tab === 'orders') { 
+                    this.$nextTick(() => { this.initOrderCalendar(); }); 
+                }
+                
+                // 3. 分店帳號
+                if (tab === 'users') { 
+                    this.fetchUsers(); 
+                }
+                
+                // 4. 倉儲 & 產品配置
                 if (tab === 'inventory' || tab === 'products') {
                     this.fetchInventory(); 
-                    if(tab === 'products') this.fetchProductLogs();
+                    
+                    if(tab === 'products') {
+                        this.fetchProductLogs();
+                    }
+                    
                     if(tab === 'inventory') {
                         if(!this.filters.logDateRange) this.fetchLogs();
+                        
                         this.$nextTick(() => {
                             if (this.flatpickrInstance) { this.flatpickrInstance.destroy(); this.flatpickrInstance = null; }
                             const pickerElement = document.getElementById("logDatePicker");
                             if (pickerElement) {
-                                this.flatpickrInstance = flatpickr(pickerElement, { locale: "zh_tw", mode: "range", dateFormat: "Y-m-d", disableMobile: true, defaultDate: this.filters.logDateRange, onChange: (d, s) => { this.filters.logDateRange = s; this.fetchLogs(); } });
+                                this.flatpickrInstance = flatpickr(pickerElement, { 
+                                    locale: "zh_tw", 
+                                    mode: "range", 
+                                    dateFormat: "Y-m-d", 
+                                    disableMobile: true, 
+                                    defaultDate: this.filters.logDateRange, 
+                                    onChange: (d, s) => { this.filters.logDateRange = s; this.fetchLogs(); } 
+                                });
                             }
                         });
                     }
                 }
             },
-            initOrderCalendar() { if (this.orderDateInstance) { this.orderDateInstance.destroy(); this.orderDateInstance = null; } const element = document.getElementById("orderDatePicker"); if (element) { this.orderDateInstance = flatpickr(element, { locale: "zh_tw", mode: "range", dateFormat: "Y-m-d", disableMobile: true, defaultDate: this.filters.dateRange, onChange: (d, s) => { this.filters.dateRange = s; } }); } },
+
+            // --- Auth ---
+            async authFetch(url, opt={}) { 
+                if(!opt.headers) opt.headers={}; 
+                opt.headers['Authorization']=`Bearer ${this.adminToken}`; 
+                try{ 
+                    const r=await fetch(url,opt); 
+                    if(r.status===401){ this.logout(); return null; } 
+                    return r; 
+                } catch(e){ return null; } 
+            },
+            async login() { 
+                const f=new FormData(); 
+                f.append('username',this.loginForm.username); 
+                f.append('password',this.loginForm.password); 
+                try {
+                    const r=await fetch(`${this.apiUrl}admin/login`,{method:'POST',body:f}); 
+                    if(r.ok){ 
+                        const d=await r.json(); 
+                        this.adminToken=d.access_token; 
+                        this.adminName=this.loginForm.username; 
+                        this.isLoggedIn=true; 
+                        localStorage.setItem('adminToken',d.access_token); 
+                        localStorage.setItem('adminName',this.adminName); 
+                        this.initApp(); 
+                    } else { alert('登入失敗'); }
+                } catch(e) { alert('連線錯誤'); }
+            },
+            logout() { this.isLoggedIn=false; localStorage.clear(); },
+            
+            initApp() {
+                this.$nextTick(() => {
+                    this.fetchDashboardStats(); 
+                    this.fetchUsers(); 
+                    this.fetchOrders();
+                    
+                    this.userModalInstance=new bootstrap.Modal(document.getElementById('userModal'));
+                    this.restockModalInstance=new bootstrap.Modal(document.getElementById('restockModal'));
+                    this.newProductModalInstance=new bootstrap.Modal(document.getElementById('newProductModal'));
+                    this.unitModalInstance=new bootstrap.Modal(document.getElementById('unitModal'));
+                    this.orderDetailModalInstance=new bootstrap.Modal(document.getElementById('orderDetailModal'));
+                    
+                    this.initOrderCalendar();
+                });
+            },
+
+            // --- 數據 Fetching ---
             async fetchDashboardStats() { const r = await this.authFetch(`${this.apiUrl}admin/dashboard_stats`); if(r) { this.stats = await r.json(); this.$nextTick(() => { this.renderCharts(); }); } },
-            renderCharts() { if(this.charts.trend) this.charts.trend.destroy(); this.charts.trend = new Chart(document.getElementById('trendChart'), { type: 'line', data: { labels: this.stats.trend.labels, datasets: [{ label: '每日訂單數', data: this.stats.trend.values, borderColor: '#0d6efd', backgroundColor: 'rgba(13, 110, 253, 0.1)', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); if(this.charts.product) this.charts.product.destroy(); this.charts.product = new Chart(document.getElementById('productChart'), { type: 'doughnut', data: { labels: this.stats.top_products.labels, datasets: [{ data: this.stats.top_products.values, backgroundColor: ['#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0', '#9966ff'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } }); if(this.charts.store) this.charts.store.destroy(); this.charts.store = new Chart(document.getElementById('storeChart'), { type: 'bar', data: { labels: this.stats.top_stores.labels, datasets: [{ label: '訂單數', data: this.stats.top_stores.values, backgroundColor: '#198754', borderRadius: 5 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } }); },
-            async fetchOrders() { try { let url = `${this.apiUrl}orders?`; if (this.filters.store) url += `store=${encodeURIComponent(this.filters.store)}&`; if (this.filters.dateRange) { const d = this.filters.dateRange.split(' to '); if (d.length >= 1) url += `start_date=${d[0]}&end_date=${d.length===2?d[1]:d[0]}&`; } const r = await this.authFetch(url); if(r) { this.orders = await r.json(); this.pages.orders = 1; } } catch(e){} },
+            async fetchOrders() { 
+                try { 
+                    let url = `${this.apiUrl}orders?`; 
+                    if (this.filters.store) url += `store=${encodeURIComponent(this.filters.store)}&`; 
+                    if (this.filters.dateRange) { const d = this.filters.dateRange.split(' to '); if (d.length >= 1) url += `start_date=${d[0]}&end_date=${d.length===2?d[1]:d[0]}&`; } 
+                    const r = await this.authFetch(url); 
+                    if(r) { this.orders = await r.json(); this.pages.orders = 1; } 
+                } catch(e){} 
+            },
             resetFilters() { this.filters.store = ''; this.filters.dateRange = ''; if(this.orderDateInstance) this.orderDateInstance.clear(); this.fetchOrders(); },
+            
             async fetchUsers() { const r = await this.authFetch(`${this.apiUrl}users`); if(r) { this.users = await r.json(); this.pages.users = 1; } },
             async fetchInventory() { const r = await this.authFetch(`${this.apiUrl}admin/products`); if(r) { this.inventory = await r.json(); this.pages.inventory = 1; this.pages.configProducts = 1; } },
-            async fetchLogs() { let url = `${this.apiUrl}admin/inventory_logs?`; if (this.filters.logDateRange) { const d = this.filters.logDateRange.split(' to '); if (d.length >= 1) url += `start_date=${d[0]}&end_date=${d.length===2?d[1]:d[0]}&`; } const r = await this.authFetch(url); if(r) { this.inventoryLogs = await r.json(); this.pages.logs = 1; } },
+            async fetchLogs() { 
+                let url = `${this.apiUrl}admin/inventory_logs?`; 
+                if (this.filters.logDateRange) { const d = this.filters.logDateRange.split(' to '); if (d.length >= 1) url += `start_date=${d[0]}&end_date=${d.length===2?d[1]:d[0]}&`; } 
+                const r = await this.authFetch(url); if(r) { this.inventoryLogs = await r.json(); this.pages.logs = 1; } 
+            },
             async fetchProductLogs() { const r = await this.authFetch(`${this.apiUrl}admin/product_logs`); if(r) { this.productLogs = await r.json(); this.pages.configLogs = 1; } },
             async fetchUnits(pid) { const r = await this.authFetch(`${this.apiUrl}admin/products/${pid}/units`); if(r) { this.productUnits = await r.json(); } },
+
+            // --- 寫入操作 ---
             async createUser() { const r = await this.authFetch(`${this.apiUrl}create_user`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.newUser)}); if(r && r.ok){ this.userModalInstance.hide(); this.fetchUsers(); alert('成功'); } },
             async toggleUser(u) { if(confirm('確定?')) { const r = await this.authFetch(`${this.apiUrl}users/${u.id}/toggle`, {method:'PUT'}); if(r && r.ok) u.is_active=!u.is_active; } },
             async resetPassword(u) { if(confirm('重置?')) { const r = await this.authFetch(`${this.apiUrl}users/${u.id}/reset_password`, {method:'PUT'}); if(r && r.ok) alert('已重置'); } },
@@ -325,7 +367,41 @@
             async toggleProduct(p) { if(!confirm('確定?')) return; const r = await this.authFetch(`${this.apiUrl}admin/products/${p.id}/toggle`, {method:'PUT'}); if(r && r.ok) { this.fetchInventory(); this.fetchProductLogs(); } },
             openUnitModal(p) { this.selectedProduct = p; this.newUnit = {name:'', rate:''}; this.fetchUnits(p.id); this.unitModalInstance.show(); },
             async createUnit() { if(!this.newUnit.name) return; const r = await this.authFetch(`${this.apiUrl}admin/units/create`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({product_id:this.selectedProduct.id, unit_name:this.newUnit.name, conversion_rate:this.newUnit.rate})}); if(r && r.ok) { this.newUnit={name:'', rate:''}; this.fetchUnits(this.selectedProduct.id); this.fetchProductLogs(); } },
-            async deleteUnit(uid) { if(!confirm("刪除?")) return; const r = await this.authFetch(`${this.apiUrl}admin/units/${uid}`, {method:'DELETE'}); if(r && r.ok) { this.fetchUnits(this.selectedProduct.id); this.fetchProductLogs(); } }
+            async deleteUnit(uid) { if(!confirm("刪除?")) return; const r = await this.authFetch(`${this.apiUrl}admin/units/${uid}`, {method:'DELETE'}); if(r && r.ok) { this.fetchUnits(this.selectedProduct.id); this.fetchProductLogs(); } },
+
+            // --- 工具 ---
+            paginate(items, page, limit) { const start = (page - 1) * limit; return items.slice(start, start + limit); },
+            initOrderCalendar() { if (this.orderDateInstance) { this.orderDateInstance.destroy(); this.orderDateInstance = null; } const element = document.getElementById("orderDatePicker"); if (element) { this.orderDateInstance = flatpickr(element, { locale: "zh_tw", mode: "range", dateFormat: "Y-m-d", disableMobile: true, defaultDate: this.filters.dateRange, onChange: (d, s) => { this.filters.dateRange = s; } }); } },
+            
+            // Modal & Export
+            openOrderDetail(order) { this.selectedOrder = order; this.orderDetailModalInstance.show(); },
+            exportSingleOrder(order) {
+                let csv = "\ufeff商品名稱,訂購數量,扣倉重量\n";
+                order.items.forEach(item => { csv += `${item.product},${item.qty},${item.weight} KG\n`; });
+                csv += `\n,,總重量: ${order.total_weight} KG`;
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `${order.order_no}.csv`; link.click();
+            },
+            exportAllToExcel() {
+                if (this.orders.length === 0) return;
+                let csv = "\ufeff訂單時間,單號,分店,總件數,總重量,詳細內容\n";
+                this.orders.forEach(o => {
+                    let details = o.items.map(i => `${i.product} x${i.qty}`).join(" | ");
+                    csv += `${o.time},${o.order_no},${o.store},${o.items_count},${o.total_weight},${details}\n`;
+                });
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `訂單總表.csv`; link.click();
+            },
+
+            // Charts
+            renderCharts() {
+                if(this.charts.trend) this.charts.trend.destroy();
+                this.charts.trend = new Chart(document.getElementById('trendChart'), { type: 'line', data: { labels: this.stats.trend.labels, datasets: [{ label: '每日訂單數', data: this.stats.trend.values, borderColor: '#0d6efd', backgroundColor: 'rgba(13, 110, 253, 0.1)', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+                if(this.charts.product) this.charts.product.destroy();
+                this.charts.product = new Chart(document.getElementById('productChart'), { type: 'doughnut', data: { labels: this.stats.top_products.labels, datasets: [{ data: this.stats.top_products.values, backgroundColor: ['#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0', '#9966ff'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+                if(this.charts.store) this.charts.store.destroy();
+                this.charts.store = new Chart(document.getElementById('storeChart'), { type: 'bar', data: { labels: this.stats.top_stores.labels, datasets: [{ label: '訂單數', data: this.stats.top_stores.values, backgroundColor: '#198754', borderRadius: 5 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
+            }
         }
     }).mount('#app')
 </script>
