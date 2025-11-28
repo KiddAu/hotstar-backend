@@ -74,6 +74,8 @@ def get_products():
         SELECT p.id, p.name, p.current_stock, p.base_unit, u.unit_name, u.conversion_rate, u.id
         FROM products p
         JOIN product_units u ON p.id = u.product_id
+        WHERE p.is_active = TRUE
+        ORDER BY p.id ASC
     """)
     rows = cursor.fetchall()
     results = []
@@ -146,14 +148,17 @@ def create_order(order: OrderSchema):
         cursor.close()
         conn.close()
         
-# 3. 後台查詢訂單 API (新增功能)
+# 3. 後台查詢訂單 API (已升級：支援分店和日期篩選)
 @app.get("/orders")
-def get_orders():
+def get_orders(store: str = None, date: str = None):
+    # store: 分店名稱 (模糊搜尋)
+    # date: 日期字串 (YYYY-MM-DD)
+    
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     
-    # 用 SQL Join 將訂單、商品、單位連埋一齊查
-    query = """
+    # 基礎 SQL (注意：這裡先不寫 ORDER BY，最後才加)
+    sql = """
         SELECT 
             o.order_number, 
             o.store_name, 
@@ -166,10 +171,26 @@ def get_orders():
         JOIN order_items oi ON o.id = oi.order_id
         JOIN products p ON oi.product_id = p.id
         JOIN product_units u ON oi.unit_id = u.id
-        ORDER BY o.order_date DESC;
+        WHERE 1=1 
     """
     
-    cursor.execute(query)
+    params = []
+    
+    # 加入分店篩選 (如果有的話)
+    if store:
+        sql += " AND o.store_name ILIKE %s" # ILIKE 代表不分大小寫
+        params.append(f"%{store}%")
+        
+    # 加入日期篩選 (如果有的話)
+    if date:
+        # 重要：要先將 DB 時間轉做香港時間 (+8)，再轉做 Date 來比對
+        sql += " AND DATE(o.order_date + interval '8 hours') = %s"
+        params.append(date)
+    
+    # 最後加上排序
+    sql += " ORDER BY o.order_date DESC"
+    
+    cursor.execute(sql, tuple(params))
     rows = cursor.fetchall()
     
     results = []
@@ -179,8 +200,8 @@ def get_orders():
             "store": row[1],
             "time": row[2],
             "product": row[3],
-            "qty": f"{row[4]} {row[5]}",   # 例如: 5 箱
-            "total_weight": f"{row[6]} KG" # 例如: 100 KG
+            "qty": f"{row[4]} {row[5]}",
+            "total_weight": f"{row[6]} KG"
         })
     
     cursor.close()

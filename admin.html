@@ -33,10 +33,35 @@
     <div class="table-card p-4 shadow-sm bg-white" v-cloak>
         
         <div v-if="currentTab === 'orders'">
-            <div class="d-flex justify-content-end mb-3">
-                <button class="btn btn-success btn-sm me-2" @click="exportToExcel">📥 匯出 Excel</button>
-                <button class="btn btn-outline-primary btn-sm" @click="fetchOrders">🔄 刷新</button>
+            
+            <div class="card bg-light border-0 p-3 mb-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-auto fw-bold text-muted">🔍 篩選條件:</div>
+                    
+                    <div class="col-md-3">
+                        <select class="form-select" v-model="filters.store">
+                            <option value="">全部豪大大分店</option>
+                            <option v-for="u in users" :key="u.id" :value="u.display_name">
+                                {{ u.display_name }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">📅</span>
+                            <input type="text" id="orderDatePicker" class="form-control bg-white" placeholder="全部日期" readonly>
+                        </div>
+                    </div>
+
+                    <div class="col-md-auto ms-auto d-flex gap-2">
+                        <button class="btn btn-primary" @click="fetchOrders">🔎 搜尋</button>
+                        <button class="btn btn-outline-secondary" @click="resetFilters">重置</button>
+                        <div class="vr mx-1"></div> <button class="btn btn-success" @click="exportToExcel">📥 匯出 Excel</button>
+                    </div>
+                </div>
             </div>
+
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-light"><tr><th>時間</th><th>編號</th><th>分店</th><th>商品</th><th>數量</th><th>狀態</th></tr></thead>
@@ -46,7 +71,9 @@
                             <td>{{ order.store }}</td><td>{{ order.product }}</td><td class="fw-bold">{{ order.qty }}</td>
                             <td><span class="badge bg-success">已確認</span></td>
                         </tr>
-                        <tr v-if="orders.length === 0"><td colspan="6" class="text-center text-muted">暫無訂單</td></tr>
+                        <tr v-if="orders.length === 0"><td colspan="6" class="text-center text-muted py-5">
+                            🔍 找不到符合條件的訂單<br><small>試試切換篩選條件</small>
+                        </td></tr>
                     </tbody>
                 </table>
             </div>
@@ -223,9 +250,15 @@
                 selectedProduct: null,
                 selectedMonth: new Date().toISOString().slice(0, 7),
                 productLogs: [],
+
+                filters: {
+                    store: '',
+                    date: ''
+                },
                 
                 // 實例
-                userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, flatpickrInstance: null
+                userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, flatpickrInstance: null,
+                flatpickrInstance: null, orderDateInstance: null
             }
         },
         mounted() {
@@ -234,6 +267,13 @@
             this.restockModalInstance = new bootstrap.Modal(document.getElementById('restockModal'));
             this.newProductModalInstance = new bootstrap.Modal(document.getElementById('newProductModal'));
             this.unitModalInstance = new bootstrap.Modal(document.getElementById('unitModal'));
+
+            this.orderDateInstance = flatpickr("#orderDatePicker", {
+                locale: "zh_tw",
+                dateFormat: "Y-m-d", // 格式: 2025-11-28
+                disableMobile: true,
+                onChange: (d, s) => { this.filters.date = s; } // 選完日期自動放入 filters.date
+            });
         },
         methods: {
             switchTab(tab) {
@@ -259,7 +299,17 @@
             },
             
             // API calls
-            async fetchOrders() { try { const r = await fetch(`${this.apiUrl}orders`); this.orders = await r.json(); } catch(e){} },
+            async fetchOrders() {
+                try {
+                    // 組合 URL 參數
+                    let url = `${this.apiUrl}orders?`;
+                    if (this.filters.store) url += `store=${encodeURIComponent(this.filters.store)}&`;
+                    if (this.filters.date) url += `date=${this.filters.date}&`;
+                    
+                    const r = await fetch(url);
+                    this.orders = await r.json();
+                } catch(e){}
+            },
             async fetchUsers() { try { const r = await fetch(`${this.apiUrl}users`); this.users = await r.json(); } catch(e){} },
             async fetchInventory() { 
                 try { 
@@ -286,6 +336,12 @@
                 this.orders.forEach(r => csv += `${r.time},${r.order_no},${r.store},${r.product},${r.qty},${r.total_weight}\n`);
                 const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
                 const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `訂單報表.csv`; link.click();
+            },
+            resetFilters() {
+                this.filters.store = '';
+                this.filters.date = '';
+                if(this.orderDateInstance) this.orderDateInstance.clear(); // 清空日曆顯示
+                this.fetchOrders(); // 重新載入全部
             },
             
             // --- User Actions ---
@@ -327,7 +383,7 @@
             async deleteUnit(uid) {
                 if(!confirm("確定刪除此單位?")) return;
                 try { const r = await fetch(`${this.apiUrl}admin/units/${uid}`, {method:'DELETE'}); if(r.ok) { this.fetchUnits(this.selectedProduct.id); this.fetchProductLogs(); } else { alert("刪除失敗: 可能有訂單使用中"); } } catch(e){}
-            }
+            },
         }
     }).mount('#app')
 </script>
