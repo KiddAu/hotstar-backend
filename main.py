@@ -408,9 +408,12 @@ def login(data: LoginSchema):
         if not is_active:
             raise HTTPException(status_code=403, detail="此帳號已被停用，請聯絡總部")
 
+        access_token = create_access_token(data={"sub": user[5]}) # user[5] is username
+
         # 登入成功，回傳用戶資料
         return {
             "status": "success",
+            "access_token": access_token,
             "user": {
                 "id": user[0],
                 "display_name": user[1],
@@ -762,3 +765,67 @@ def get_dashboard_stats(current_user: str = Depends(get_current_admin)):
             "values": [r[1] for r in top_stores]
         }
     }
+
+# 20. (分店專用) 查詢我的歷史訂單 & 明細
+@app.get("/store/my_orders")
+def get_my_orders(current_user: str = Depends(get_current_admin)):
+    # 注意：這裡復用了 get_current_admin 來解碼 Token 取得 username
+    # 在真實專案中，建議分開 get_current_store_user，但這裡為了簡便先共用
+    
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    
+    try:
+        # 1. 先用 username (e.g. cwb_flagship) 查出 store_name (e.g. 銅鑼灣旗艦店)
+        cursor.execute("SELECT display_name FROM store_users WHERE username = %s", (current_user,))
+        user_row = cursor.fetchone()
+        
+        if not user_row:
+            return [] # 搵唔到人
+            
+        store_name = user_row[0]
+        
+        # 2. 查詢該分店的訂單 (最近 20 筆)
+        cursor.execute("""
+            SELECT id, order_number, to_char(order_date + interval '8 hours', 'YYYY-MM-DD HH24:MI'), status 
+            FROM orders 
+            WHERE store_name = %s 
+            ORDER BY order_date DESC 
+            LIMIT 20
+        """, (store_name,))
+        orders_data = cursor.fetchall()
+        
+        results = []
+        for o in orders_data:
+            order_id = o[0]
+            # 3. 查詢每張單買咗乜 (用於 "再來一單" 功能)
+            cursor.execute("""
+                SELECT p.name, u.unit_name, oi.quantity, oi.unit_id
+                FROM order_items oi
+                JOIN products p ON oi.product_id = p.id
+                JOIN product_units u ON oi.unit_id = u.id
+                WHERE oi.order_id = %s
+            """, (order_id,))
+            items_data = cursor.fetchall()
+            
+            items = []
+            for i in items_data:
+                items.append({
+                    "product_name": i[0],
+                    "unit_name": i[1],
+                    "qty": float(i[2]),
+                    "unit_id": i[3]
+                })
+            
+            results.append({
+                "order_no": o[1],
+                "date": o[2],
+                "status": o[3],
+                "items": items
+            })
+            
+        return results
+
+    finally:
+        cursor.close()
+        conn.close()
