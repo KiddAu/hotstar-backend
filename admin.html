@@ -12,6 +12,7 @@
         .nav-tabs .nav-link { color: #6c757d; cursor: pointer; }
         .table-card { background: white; border-radius: 0 0 10px 10px; border: 1px solid #dee2e6; border-top: none; }
         [v-cloak] { display: none; }
+        .pagination-container { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
     </style>
 </head>
 <body>
@@ -20,7 +21,7 @@
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-dark">🍗 豪大大總部系統</h2>
-        <span class="badge bg-secondary">Admin Panel v3.0</span>
+        <span class="badge bg-secondary">Admin Panel v4.0</span>
     </div>
 
     <ul class="nav nav-tabs">
@@ -33,31 +34,23 @@
     <div class="table-card p-4 shadow-sm bg-white" v-cloak>
         
         <div v-if="currentTab === 'orders'">
-            
             <div class="card bg-light border-0 p-3 mb-3">
                 <div class="row g-2 align-items-center">
-                    <div class="col-md-auto fw-bold text-muted">🔍 篩選條件:</div>
-                    
+                    <div class="col-md-auto fw-bold text-muted">🔍 篩選:</div>
                     <div class="col-md-3">
                         <select class="form-select" v-model="filters.store">
                             <option value="">全部豪大大分店</option>
-                            <option v-for="u in users" :key="u.id" :value="u.display_name">
-                                {{ u.display_name }}
-                            </option>
+                            <option v-for="u in users" :key="u.id" :value="u.display_name">{{ u.display_name }}</option>
                         </select>
                     </div>
-
                     <div class="col-md-3">
-                        <div class="input-group">
-                            <span class="input-group-text bg-white">📅</span>
-                            <input type="text" id="orderDatePicker" class="form-control bg-white" placeholder="全部日期" readonly>
-                        </div>
+                        <div class="input-group"><span class="input-group-text bg-white">📅</span><input type="text" id="orderDatePicker" class="form-control bg-white" placeholder="全部日期" readonly></div>
                     </div>
-
                     <div class="col-md-auto ms-auto d-flex gap-2">
-                        <button class="btn btn-primary" @click="fetchOrders">🔎 搜尋</button>
+                        <button class="btn btn-primary" @click="fetchOrders">🔎</button>
                         <button class="btn btn-outline-secondary" @click="resetFilters">重置</button>
-                        <div class="vr mx-1"></div> <button class="btn btn-success" @click="exportToExcel">📥 匯出 Excel</button>
+                        <div class="vr mx-1"></div>
+                        <button class="btn btn-success" @click="exportToExcel">📥 Excel</button>
                     </div>
                 </div>
             </div>
@@ -66,16 +59,25 @@
                 <table class="table table-hover align-middle">
                     <thead class="table-light"><tr><th>時間</th><th>編號</th><th>分店</th><th>商品</th><th>數量</th><th>狀態</th></tr></thead>
                     <tbody>
-                        <tr v-for="order in orders" :key="order.order_no">
+                        <tr v-for="order in paginatedOrders" :key="order.order_no">
                             <td class="small text-muted">{{ order.time }}</td><td class="fw-bold text-primary small">{{ order.order_no }}</td>
                             <td>{{ order.store }}</td><td>{{ order.product }}</td><td class="fw-bold">{{ order.qty }}</td>
                             <td><span class="badge bg-success">已確認</span></td>
                         </tr>
-                        <tr v-if="orders.length === 0"><td colspan="6" class="text-center text-muted py-5">
-                            🔍 找不到符合條件的訂單<br><small>試試切換篩選條件</small>
-                        </td></tr>
+                        <tr v-if="orders.length === 0"><td colspan="6" class="text-center text-muted py-4">暫無訂單</td></tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="pagination-container" v-if="orders.length > 0">
+                <span class="text-muted small">顯示 {{ (pages.orders - 1) * limits.orders + 1 }} - {{ Math.min(pages.orders * limits.orders, orders.length) }} 筆 (共 {{ orders.length }} 筆)</span>
+                <nav>
+                    <ul class="pagination mb-0">
+                        <li class="page-item" :class="{ disabled: pages.orders === 1 }"><button class="page-link" @click="pages.orders--">上一頁</button></li>
+                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.orders }} / {{ Math.ceil(orders.length / limits.orders) }}</span></li>
+                        <li class="page-item" :class="{ disabled: pages.orders >= Math.ceil(orders.length / limits.orders) }"><button class="page-link" @click="pages.orders++">下一頁</button></li>
+                    </ul>
+                </nav>
             </div>
         </div>
 
@@ -88,14 +90,24 @@
                 <table class="table align-middle">
                     <thead class="table-light"><tr><th>ID</th><th>帳號</th><th>分店名稱</th><th>狀態</th><th>操作</th><th>密碼</th></tr></thead>
                     <tbody>
-                        <tr v-for="user in users" :key="user.id" :class="{'table-secondary': !user.is_active}">
+                        <tr v-for="user in paginatedUsers" :key="user.id" :class="{'table-secondary': !user.is_active}">
                             <td>{{ user.id }}</td><td class="fw-bold">{{ user.username }}</td><td>{{ user.display_name }}</td>
-                            <td><span v-if="!user.is_active" class="badge bg-secondary">停用</span><span v-else-if="user.is_reset_needed" class="badge bg-warning text-dark">待改密碼</span><span v-else class="badge bg-success">正常</span></td>
+                            <td><span v-if="!user.is_active" class="badge bg-secondary">停用</span><span v-else-if="user.is_reset_needed" class="badge bg-warning text-dark">待改</span><span v-else class="badge bg-success">正常</span></td>
                             <td><button class="btn btn-sm" :class="user.is_active ? 'btn-outline-danger' : 'btn-outline-success'" @click="toggleUser(user)">{{ user.is_active ? '⛔ 停用' : '✅ 啟用' }}</button></td>
                             <td><button class="btn btn-sm btn-outline-dark" @click="resetPassword(user)">🔄 重置</button></td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            <div class="pagination-container" v-if="users.length > 0">
+                <span class="text-muted small">共 {{ users.length }} 個帳號</span>
+                <nav>
+                    <ul class="pagination mb-0">
+                        <li class="page-item" :class="{ disabled: pages.users === 1 }"><button class="page-link" @click="pages.users--">上一頁</button></li>
+                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.users }}</span></li>
+                        <li class="page-item" :class="{ disabled: pages.users >= Math.ceil(users.length / limits.users) }"><button class="page-link" @click="pages.users++">下一頁</button></li>
+                    </ul>
+                </nav>
             </div>
         </div>
 
@@ -104,34 +116,47 @@
                 <p class="text-muted mb-0 small">管理總倉庫存。</p>
                 <button class="btn btn-primary btn-sm" @click="fetchInventory">🔄 刷新</button>
             </div>
-            <table class="table align-middle table-bordered mb-5">
+
+            <table class="table align-middle table-bordered mb-0">
                 <thead class="table-light"><tr><th>SKU</th><th>商品</th><th class="text-end">目前庫存</th><th>單位</th><th class="text-center">操作</th></tr></thead>
                 <tbody>
-                    <tr v-for="item in inventory" :key="item.id">
-                        <td class="text-muted small font-monospace">{{ item.sku }}</td>
-                        <td class="fw-bold">{{ item.name }}</td>
+                    <tr v-for="item in paginatedInventory" :key="item.id">
+                        <td class="text-muted small font-monospace">{{ item.sku }}</td><td class="fw-bold">{{ item.name }}</td>
                         <td class="text-end fw-bold fs-5" :class="item.current_stock < 100 ? 'text-danger' : 'text-dark'">{{ item.current_stock }}</td>
                         <td class="text-muted">{{ item.base_unit }}</td>
                         <td class="text-center"><button class="btn btn-sm btn-outline-primary" @click="openRestockModal(item)">📝 調整</button></td>
                     </tr>
                 </tbody>
             </table>
+            <div class="pagination-container mb-5" v-if="inventory.length > 0">
+                <span class="text-muted small">共 {{ inventory.length }} 項產品</span>
+                <nav>
+                    <ul class="pagination mb-0 small">
+                        <li class="page-item" :class="{ disabled: pages.inventory === 1 }"><button class="page-link" @click="pages.inventory--">上一頁</button></li>
+                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.inventory }}</span></li>
+                        <li class="page-item" :class="{ disabled: pages.inventory >= Math.ceil(inventory.length / limits.inventory) }"><button class="page-link" @click="pages.inventory++">下一頁</button></li>
+                    </ul>
+                </nav>
+            </div>
+
             <hr class="my-4">
+
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="fw-bold text-dark">📅 進出貨歷史紀錄</h4>
                 <div class="d-flex align-items-center">
-                    <label class="me-2 text-muted fw-bold">選擇月份:</label>
-                    <div class="input-group" style="width: 250px;">
+                    <label class="me-2 text-muted fw-bold">月份:</label>
+                    <div class="input-group" style="width: 200px;">
                         <span class="input-group-text bg-white">📅</span>
-                        <input type="text" id="monthPicker" class="form-control bg-white" placeholder="請點擊選擇日期..." readonly>
+                        <input type="text" id="monthPicker" class="form-control bg-white" placeholder="選擇日期" readonly>
                     </div>
                 </div>
             </div>
+            
             <div class="table-responsive">
-                <table class="table table-striped align-middle">
+                <table class="table table-striped align-middle mb-0">
                     <thead class="table-dark"><tr><th>時間</th><th>商品</th><th>變動</th><th>備註</th></tr></thead>
                     <tbody>
-                        <tr v-for="log in inventoryLogs" :key="log.time">
+                        <tr v-for="log in paginatedLogs" :key="log.time">
                             <td class="small">{{ log.time }}</td><td>{{ log.product }}</td>
                             <td class="fw-bold" :class="log.qty > 0 ? 'text-success' : 'text-danger'">{{ log.qty > 0 ? '+' : '' }}{{ log.qty }} {{ log.unit }}</td>
                             <td class="text-muted small">{{ log.note }}</td>
@@ -140,89 +165,82 @@
                     </tbody>
                 </table>
             </div>
+            <div class="pagination-container" v-if="inventoryLogs.length > 0">
+                <span class="text-muted small">共 {{ inventoryLogs.length }} 條紀錄</span>
+                <nav>
+                    <ul class="pagination mb-0">
+                        <li class="page-item" :class="{ disabled: pages.logs === 1 }"><button class="page-link" @click="pages.logs--">上一頁</button></li>
+                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.logs }} / {{ Math.ceil(inventoryLogs.length / limits.logs) }}</span></li>
+                        <li class="page-item" :class="{ disabled: pages.logs >= Math.ceil(inventoryLogs.length / limits.logs) }"><button class="page-link" @click="pages.logs++">下一頁</button></li>
+                    </ul>
+                </nav>
+            </div>
         </div>
 
         <div v-if="currentTab === 'products'">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="alert alert-info py-2 mb-0 small">
-                    <i class="bi bi-info-circle"></i> 此處設定店長可見的商品及下單單位。
-                </div>
+                <div class="alert alert-info py-2 mb-0 small"><i class="bi bi-info-circle"></i> 設定店長可見商品。</div>
                 <button class="btn btn-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#newProductModal">➕ 新增商品</button>
             </div>
 
             <div class="table-responsive">
                 <table class="table align-middle">
-                    <thead class="table-light">
-                        <tr><th>ID</th><th>SKU</th><th>商品名稱</th><th>庫存單位 (Base)</th><th>狀態</th><th>操作</th></tr>
-                    </thead>
+                    <thead class="table-light"><tr><th>ID</th><th>SKU</th><th>商品名稱</th><th>Base</th><th>狀態</th><th>操作</th></tr></thead>
                     <tbody>
-                        <tr v-for="item in inventory" :key="item.id" :class="{'table-secondary': !item.is_active}">
-                            <td>{{ item.id }}</td>
-                            <td class="font-monospace text-muted">{{ item.sku }}</td>
-                            <td class="fw-bold">{{ item.name }}</td>
-                            <td>{{ item.base_unit }}</td>
+                        <tr v-for="item in paginatedConfigProducts" :key="item.id" :class="{'table-secondary': !item.is_active}">
+                            <td>{{ item.id }}</td><td class="font-monospace text-muted">{{ item.sku }}</td><td class="fw-bold">{{ item.name }}</td><td>{{ item.base_unit }}</td>
+                            <td><span v-if="item.is_active !== false" class="badge bg-success">上架中</span><span v-else class="badge bg-secondary">已下架</span></td>
                             <td>
-                                <span v-if="item.is_active !== false" class="badge bg-success">上架中</span> <span v-else class="badge bg-secondary">已下架</span>
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-dark me-2" @click="openUnitModal(item)">⚙️ 設定單位</button>
-                                <button class="btn btn-sm" :class="item.is_active !== false ? 'btn-outline-danger' : 'btn-outline-success'" @click="toggleProduct(item)">
-                                    {{ item.is_active !== false ? '🔽 下架' : '🔼 上架' }}
-                                </button>
+                                <button class="btn btn-sm btn-outline-dark me-2" @click="openUnitModal(item)">⚙️ 單位</button>
+                                <button class="btn btn-sm" :class="item.is_active !== false ? 'btn-outline-danger' : 'btn-outline-success'" @click="toggleProduct(item)">{{ item.is_active !== false ? '🔽' : '🔼' }}</button>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
+            <div class="pagination-container mb-5" v-if="inventory.length > 0">
+                 <span class="text-muted small">共 {{ inventory.length }} 項產品</span>
+                 <nav>
+                    <ul class="pagination mb-0">
+                        <li class="page-item" :class="{ disabled: pages.configProducts === 1 }"><button class="page-link" @click="pages.configProducts--">上一頁</button></li>
+                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.configProducts }}</span></li>
+                        <li class="page-item" :class="{ disabled: pages.configProducts >= Math.ceil(inventory.length / limits.configProducts) }"><button class="page-link" @click="pages.configProducts++">下一頁</button></li>
+                    </ul>
+                </nav>
+            </div>
 
             <hr class="my-5">
             
-            <h4 class="fw-bold text-dark mb-3">🛠️ 配置變更紀錄 (最近 50 筆)</h4>
-            
+            <h4 class="fw-bold text-dark mb-3">🛠️ 配置變更紀錄</h4>
             <div class="table-responsive">
-                <table class="table table-striped align-middle border">
-                    <thead class="table-secondary">
-                        <tr>
-                            <th style="width: 180px;">操作時間</th>
-                            <th style="width: 150px;">相關產品</th>
-                            <th style="width: 120px;">動作</th>
-                            <th>詳細內容</th>
-                        </tr>
-                    </thead>
+                <table class="table table-striped align-middle border mb-0">
+                    <thead class="table-secondary"><tr><th style="width: 180px;">時間</th><th style="width: 150px;">產品</th><th style="width: 120px;">動作</th><th>內容</th></tr></thead>
                     <tbody>
-                        <tr v-for="log in productLogs" :key="log.time">
-                            <td class="small text-muted">{{ log.time }}</td>
-                            <td class="fw-bold">{{ log.product }}</td>
-                            <td>
-                                <span class="badge" 
-                                    :class="{
-                                        'bg-primary': log.action === '新增產品',
-                                        'bg-warning text-dark': log.action === '狀態變更',
-                                        'bg-info text-dark': log.action === '新增單位',
-                                        'bg-danger': log.action === '刪除單位'
-                                    }">
-                                    {{ log.action }}
-                                </span>
-                            </td>
-                            <td class="small">{{ log.details }}</td>
-                        </tr>
-                        <tr v-if="productLogs.length === 0">
-                            <td colspan="4" class="text-center py-3 text-muted">暫無配置變更紀錄</td>
+                        <tr v-for="log in paginatedConfigLogs" :key="log.time">
+                            <td class="small text-muted">{{ log.time }}</td><td class="fw-bold">{{ log.product }}</td>
+                            <td><span class="badge bg-secondary">{{ log.action }}</span></td><td class="small">{{ log.details }}</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            <div class="pagination-container" v-if="productLogs.length > 0">
+                <span class="text-muted small">共 {{ productLogs.length }} 條紀錄</span>
+                <nav>
+                    <ul class="pagination mb-0">
+                        <li class="page-item" :class="{ disabled: pages.configLogs === 1 }"><button class="page-link" @click="pages.configLogs--">上一頁</button></li>
+                        <li class="page-item disabled"><span class="page-link text-dark">{{ pages.configLogs }} / {{ Math.ceil(productLogs.length / limits.configLogs) }}</span></li>
+                        <li class="page-item" :class="{ disabled: pages.configLogs >= Math.ceil(productLogs.length / limits.configLogs) }"><button class="page-link" @click="pages.configLogs++">下一頁</button></li>
+                    </ul>
+                </nav>
             </div>
         </div>
 
     </div>
 
     <div class="modal fade" id="userModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-warning"><h5 class="modal-title">新增帳號</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form @submit.prevent="createUser"><div class="mb-3"><label>帳號</label><input type="text" class="form-control" v-model="newUser.username" required></div><div class="mb-3"><label>分店名</label><input type="text" class="form-control" v-model="newUser.display_name" required></div><div class="mb-3"><label>密碼</label><input type="text" class="form-control" v-model="newUser.password" required></div><button type="submit" class="btn btn-dark w-100">建立</button></form></div></div></div></div>
-    
     <div class="modal fade" id="restockModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">庫存調整</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" v-if="selectedProduct"><h5 class="fw-bold">{{ selectedProduct.name }}</h5><p>目前: {{ selectedProduct.current_stock }} {{ selectedProduct.base_unit }}</p><form @submit.prevent="submitRestock"><div class="mb-3"><label>數量 ({{ selectedProduct.base_unit }})</label><input type="number" step="0.01" class="form-control" v-model.number="restockForm.quantity" placeholder="正數入貨，負數扣減" required></div><div class="mb-3"><label>備註</label><input type="text" class="form-control" v-model="restockForm.note"></div><button type="submit" class="btn btn-primary w-100">確認</button></form></div></div></div></div>
-
-    <div class="modal fade" id="newProductModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">新增商品</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form @submit.prevent="createProduct"><div class="mb-3"><label>商品名稱</label><input type="text" class="form-control" v-model="newProduct.name" placeholder="例如: 薯條" required></div><div class="mb-3"><label>SKU 編號</label><input type="text" class="form-control" v-model="newProduct.sku" placeholder="例如: CK-FRY-001" required></div><div class="mb-3"><label>庫存基準單位</label><input type="text" class="form-control" v-model="newProduct.base_unit" placeholder="例如: KG" required><div class="form-text">這是總倉記帳用的最小單位</div></div><button type="submit" class="btn btn-primary w-100">建立商品</button></form></div></div></div></div>
-
-    <div class="modal fade" id="unitModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-dark text-white"><h5 class="modal-title">設定銷售單位</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" v-if="selectedProduct"><h5 class="mb-3">正在設定: <span class="text-primary">{{ selectedProduct.name }}</span></h5><p class="small text-muted">基準單位: {{ selectedProduct.base_unit }}</p><ul class="list-group mb-4"><li class="list-group-item d-flex justify-content-between align-items-center" v-for="u in productUnits" :key="u.id"><span><strong>{{ u.name }}</strong> (1{{ u.name }} = {{ u.rate }}{{ selectedProduct.base_unit }})</span><button class="btn btn-sm btn-outline-danger" @click="deleteUnit(u.id)">刪除</button></li><li v-if="productUnits.length === 0" class="list-group-item text-center text-muted">暫無單位，店長無法下單</li></ul><hr><h6 class="fw-bold">新增單位:</h6><div class="d-flex gap-2"><input type="text" class="form-control" placeholder="單位名 (如: 箱)" v-model="newUnit.name"><input type="number" class="form-control" placeholder="換算率 (如: 20)" v-model.number="newUnit.rate"><button class="btn btn-dark" @click="createUnit">新增</button></div></div></div></div></div>
+    <div class="modal fade" id="newProductModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">新增商品</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form @submit.prevent="createProduct"><div class="mb-3"><label>名稱</label><input type="text" class="form-control" v-model="newProduct.name" required></div><div class="mb-3"><label>SKU</label><input type="text" class="form-control" v-model="newProduct.sku" required></div><div class="mb-3"><label>Base Unit</label><input type="text" class="form-control" v-model="newProduct.base_unit" required></div><button type="submit" class="btn btn-primary w-100">建立</button></form></div></div></div></div>
+    <div class="modal fade" id="unitModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-dark text-white"><h5 class="modal-title">設定單位</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" v-if="selectedProduct"><ul class="list-group mb-4"><li class="list-group-item d-flex justify-content-between" v-for="u in productUnits" :key="u.id"><span>{{ u.name }} = {{ u.rate }}</span><button class="btn btn-sm btn-outline-danger" @click="deleteUnit(u.id)">X</button></li></ul><div class="d-flex gap-2"><input class="form-control" placeholder="單位" v-model="newUnit.name"><input class="form-control" placeholder="率" v-model.number="newUnit.rate"><button class="btn btn-dark" @click="createUnit">+</button></div></div></div></div></div>
 
 </div>
 
@@ -237,10 +255,10 @@
     createApp({
         data() {
             return {
-                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改網址
+                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改成你的網址！
                 currentTab: 'orders',
                 
-                // 數據
+                // 原始數據
                 orders: [], users: [], inventory: [], inventoryLogs: [], productUnits: [], productLogs: [],
                 newUser: { username: '', password: '', display_name: '' },
                 restockForm: { quantity: '', note: '' },
@@ -249,53 +267,64 @@
                 
                 selectedProduct: null,
                 selectedMonth: new Date().toISOString().slice(0, 7),
-                
-                // 篩選
                 filters: { store: '', dateRange: '' },
                 
+                // 👇 分頁設定 (Pagination Settings)
+                pages: {
+                    orders: 1,
+                    users: 1,
+                    inventory: 1,
+                    logs: 1,
+                    configProducts: 1,
+                    configLogs: 1
+                },
+                limits: {
+                    orders: 30,
+                    users: 10,
+                    inventory: 10,
+                    logs: 20,
+                    configProducts: 10,
+                    configLogs: 50
+                },
+
                 // 實例
                 userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, 
                 flatpickrInstance: null, orderDateInstance: null
             }
         },
+        // 👇 核心邏輯：計算分頁數據
+        computed: {
+            paginatedOrders() { return this.paginate(this.orders, this.pages.orders, this.limits.orders); },
+            paginatedUsers() { return this.paginate(this.users, this.pages.users, this.limits.users); },
+            paginatedInventory() { return this.paginate(this.inventory, this.pages.inventory, this.limits.inventory); },
+            paginatedLogs() { return this.paginate(this.inventoryLogs, this.pages.logs, this.limits.logs); },
+            paginatedConfigProducts() { return this.paginate(this.inventory, this.pages.configProducts, this.limits.configProducts); }, // 注意：共用 inventory 數據但用不同分頁
+            paginatedConfigLogs() { return this.paginate(this.productLogs, this.pages.configLogs, this.limits.configLogs); }
+        },
         mounted() {
-            this.fetchUsers(); // 載入分店供篩選用
-            this.fetchOrders();
-            
-            // 初始化 Modals
+            this.fetchUsers(); this.fetchOrders();
             this.userModalInstance = new bootstrap.Modal(document.getElementById('userModal'));
             this.restockModalInstance = new bootstrap.Modal(document.getElementById('restockModal'));
             this.newProductModalInstance = new bootstrap.Modal(document.getElementById('newProductModal'));
             this.unitModalInstance = new bootstrap.Modal(document.getElementById('unitModal'));
-
-            // 首次載入都要初始化一次訂單日曆
             this.initOrderCalendar();
         },
         methods: {
-            // 👇 核心修改：切換 Tab 時，重新綁定對應的日曆
+            // 👇 分頁輔助函數
+            paginate(items, page, limit) {
+                const start = (page - 1) * limit;
+                return items.slice(start, start + limit);
+            },
+
             switchTab(tab) {
                 this.currentTab = tab;
-                
-                // Case 1: 切換回「訂單紀錄」
-                if (tab === 'orders') {
-                    this.$nextTick(() => {
-                        this.initOrderCalendar(); // 重新啟動訂單日曆
-                    });
-                }
-                
-                // Case 2: 切換到「分店帳號」
-                if (tab === 'users') {
-                    this.fetchUsers();
-                }
-                
-                // Case 3: 切換到「倉儲」或「產品」
+                if (tab === 'orders') { this.$nextTick(() => { this.initOrderCalendar(); }); }
+                if (tab === 'users') { this.fetchUsers(); }
                 if (tab === 'inventory' || tab === 'products') {
                     this.fetchInventory(); 
                     if(tab === 'products') this.fetchProductLogs();
-                    
                     if(tab === 'inventory') {
                         this.fetchLogs();
-                        // 重新啟動倉儲月份日曆
                         this.$nextTick(() => {
                             if (this.flatpickrInstance) { this.flatpickrInstance.destroy(); this.flatpickrInstance = null; }
                             const pickerElement = document.getElementById("monthPicker");
@@ -309,67 +338,40 @@
                     }
                 }
             },
-            
-            // 獨立抽出「初始化訂單日曆」的功能，方便重複使用
             initOrderCalendar() {
-                // 先銷毀舊的 (如果有)
-                if (this.orderDateInstance) {
-                    this.orderDateInstance.destroy();
-                    this.orderDateInstance = null;
-                }
-                
+                if (this.orderDateInstance) { this.orderDateInstance.destroy(); this.orderDateInstance = null; }
                 const element = document.getElementById("orderDatePicker");
                 if (element) {
                     this.orderDateInstance = flatpickr(element, {
-                        locale: "zh_tw",
-                        mode: "range", 
-                        dateFormat: "Y-m-d",
-                        disableMobile: true,
-                        defaultDate: this.filters.dateRange, // 保持用戶已選的日期
-                        onChange: (d, s) => { this.filters.dateRange = s; }
+                        locale: "zh_tw", mode: "range", dateFormat: "Y-m-d", disableMobile: true,
+                        defaultDate: this.filters.dateRange, onChange: (d, s) => { this.filters.dateRange = s; }
                     });
                 }
             },
-
-            // API calls
+            
+            // API Functions (加入：每次 fetch 新數據都重置頁碼回第1頁)
             async fetchOrders() {
                 try {
                     let url = `${this.apiUrl}orders?`;
                     if (this.filters.store) url += `store=${encodeURIComponent(this.filters.store)}&`;
                     if (this.filters.dateRange) {
                         const dates = this.filters.dateRange.split(' to ');
-                        if (dates.length >= 1) {
-                            const start = dates[0];
-                            const end = dates.length === 2 ? dates[1] : dates[0];
-                            url += `start_date=${start}&end_date=${end}&`;
-                        }
+                        if (dates.length >= 1) { const start = dates[0]; const end = dates.length === 2 ? dates[1] : dates[0]; url += `start_date=${start}&end_date=${end}&`; }
                     }
-                    const r = await fetch(url);
-                    this.orders = await r.json();
+                    const r = await fetch(url); this.orders = await r.json();
+                    this.pages.orders = 1; // 👈 搜尋後回第1頁
                 } catch(e){}
             },
-            resetFilters() {
-                this.filters.store = '';
-                this.filters.dateRange = '';
-                if(this.orderDateInstance) this.orderDateInstance.clear();
-                this.fetchOrders();
-            },
+            resetFilters() { this.filters.store = ''; this.filters.dateRange = ''; if(this.orderDateInstance) this.orderDateInstance.clear(); this.fetchOrders(); },
             
-            // 其他原有功能保持不變
-            async fetchUsers() { try { const r = await fetch(`${this.apiUrl}users`); this.users = await r.json(); } catch(e){} },
-            async fetchInventory() { try { const r = await fetch(`${this.apiUrl}admin/products`); this.inventory = await r.json(); } catch(e){} },
-            async fetchLogs() { try { const r = await fetch(`${this.apiUrl}admin/inventory_logs?month=${this.selectedMonth}`); this.inventoryLogs = await r.json(); } catch(e){} },
+            async fetchUsers() { try { const r = await fetch(`${this.apiUrl}users`); this.users = await r.json(); this.pages.users = 1; } catch(e){} },
+            async fetchInventory() { try { const r = await fetch(`${this.apiUrl}admin/products`); this.inventory = await r.json(); this.pages.inventory = 1; this.pages.configProducts = 1; } catch(e){} },
+            async fetchLogs() { try { const r = await fetch(`${this.apiUrl}admin/inventory_logs?month=${this.selectedMonth}`); this.inventoryLogs = await r.json(); this.pages.logs = 1; } catch(e){} },
+            async fetchProductLogs() { try { const r = await fetch(`${this.apiUrl}admin/product_logs`); this.productLogs = await r.json(); this.pages.configLogs = 1; } catch(e){} },
+            
             async fetchUnits(pid) { try { const r = await fetch(`${this.apiUrl}admin/products/${pid}/units`); this.productUnits = await r.json(); } catch(e){} },
-            async fetchProductLogs() { try { const r = await fetch(`${this.apiUrl}admin/product_logs`); this.productLogs = await r.json(); } catch(e){} },
-            exportToExcel() {
-                if (this.orders.length === 0) return;
-                let csv = "\ufeff時間,編號,分店,商品,數量,重量\n";
-                this.orders.forEach(r => csv += `${r.time},${r.order_no},${r.store},${r.product},${r.qty},${r.total_weight}\n`);
-                const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-                const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `訂單報表.csv`; link.click();
-            },
+            exportToExcel() { if (this.orders.length === 0) return; let csv = "\ufeff時間,編號,分店,商品,數量,重量\n"; this.orders.forEach(r => csv += `${r.time},${r.order_no},${r.store},${r.product},${r.qty},${r.total_weight}\n`); const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `訂單報表.csv`; link.click(); },
             
-            // Actions
             async createUser() { try { const r = await fetch(`${this.apiUrl}create_user`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.newUser)}); if(r.ok){ this.userModalInstance.hide(); this.fetchUsers(); alert('成功'); } else { alert('失敗'); } } catch(e){} },
             async toggleUser(u) { if(confirm('確定?')) { await fetch(`${this.apiUrl}users/${u.id}/toggle`, {method:'PUT'}); u.is_active=!u.is_active; } },
             async resetPassword(u) { if(confirm('重置?')) { await fetch(`${this.apiUrl}users/${u.id}/reset_password`, {method:'PUT'}); alert('已重置'); } },
