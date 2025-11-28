@@ -253,7 +253,7 @@
 
                 filters: {
                     store: '',
-                    date: ''
+                    dateRange: ''
                 },
                 
                 // 實例
@@ -270,9 +270,14 @@
 
             this.orderDateInstance = flatpickr("#orderDatePicker", {
                 locale: "zh_tw",
+                mode: "range",
                 dateFormat: "Y-m-d", // 格式: 2025-11-28
                 disableMobile: true,
-                onChange: (d, s) => { this.filters.date = s; } // 選完日期自動放入 filters.date
+                onChange: (selectedDates, dateStr) => {
+                    this.filters.dateRange = dateStr; 
+                    // 為了體驗更好，當選完兩個日期後，這裡不自動 fetch，
+                    // 建議用戶自己按「搜尋」掣，或者你可以 check selectedDates.length === 2 才 fetch
+                }
             });
         },
         methods: {
@@ -301,10 +306,25 @@
             // API calls
             async fetchOrders() {
                 try {
-                    // 組合 URL 參數
                     let url = `${this.apiUrl}orders?`;
-                    if (this.filters.store) url += `store=${encodeURIComponent(this.filters.store)}&`;
-                    if (this.filters.date) url += `date=${this.filters.date}&`;
+                    
+                    if (this.filters.store) {
+                        url += `store=${encodeURIComponent(this.filters.store)}&`;
+                    }
+                    
+                    // 處理 "YYYY-MM-DD to YYYY-MM-DD"
+                    if (this.filters.dateRange) {
+                        // Flatpickr 的 range 模式會用 " to " 分隔兩個日期
+                        const dates = this.filters.dateRange.split(' to ');
+                        
+                        if (dates.length === 2) {
+                            // 只有當選了開始和結束日，才發送請求
+                            url += `start_date=${dates[0]}&end_date=${dates[1]}&`;
+                        } else if (dates.length === 1) {
+                            // 如果用戶只選了一天 (例如只點了1號，未點結束日)
+                            url += `start_date=${dates[0]}&end_date=${dates[0]}&`;
+                        }
+                    }
                     
                     const r = await fetch(url);
                     this.orders = await r.json();
@@ -339,9 +359,9 @@
             },
             resetFilters() {
                 this.filters.store = '';
-                this.filters.date = '';
-                if(this.orderDateInstance) this.orderDateInstance.clear(); // 清空日曆顯示
-                this.fetchOrders(); // 重新載入全部
+                this.filters.dateRange = '';
+                if(this.orderDateInstance) this.orderDateInstance.clear();
+                this.fetchOrders();
             },
             
             // --- User Actions ---

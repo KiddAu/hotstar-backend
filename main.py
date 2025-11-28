@@ -148,16 +148,15 @@ def create_order(order: OrderSchema):
         cursor.close()
         conn.close()
         
-# 3. 後台查詢訂單 API (已升級：支援分店和日期篩選)
+# 3. 後台查詢訂單 API (已升級：支援日期範圍篩選)
 @app.get("/orders")
-def get_orders(store: str = None, date: str = None):
-    # store: 分店名稱 (模糊搜尋)
-    # date: 日期字串 (YYYY-MM-DD)
+def get_orders(store: str = None, start_date: str = None, end_date: str = None):
+    # start_date / end_date 格式: YYYY-MM-DD
     
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     
-    # 基礎 SQL (注意：這裡先不寫 ORDER BY，最後才加)
+    # 基礎 SQL
     sql = """
         SELECT 
             o.order_number, 
@@ -176,18 +175,19 @@ def get_orders(store: str = None, date: str = None):
     
     params = []
     
-    # 加入分店篩選 (如果有的話)
+    # 分店篩選
     if store:
-        sql += " AND o.store_name ILIKE %s" # ILIKE 代表不分大小寫
+        sql += " AND o.store_name ILIKE %s"
         params.append(f"%{store}%")
         
-    # 加入日期篩選 (如果有的話)
-    if date:
-        # 重要：要先將 DB 時間轉做香港時間 (+8)，再轉做 Date 來比對
-        sql += " AND DATE(o.order_date + interval '8 hours') = %s"
-        params.append(date)
+    # 👇 日期範圍篩選 (核心修改)
+    if start_date and end_date:
+        # SQL: 檢查訂單日期是否在 start_date 00:00:00 到 end_date 23:59:59 之間
+        # 注意：我們比對的是「香港時間」
+        sql += " AND (o.order_date + interval '8 hours')::date BETWEEN %s AND %s"
+        params.append(start_date)
+        params.append(end_date)
     
-    # 最後加上排序
     sql += " ORDER BY o.order_date DESC"
     
     cursor.execute(sql, tuple(params))
