@@ -5,31 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>豪大大 - 分店訂貨</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0d6efd">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="豪大大">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1046/1046751.png">
     <style>
-        body { background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding-bottom: 70px; }
+        body { background-color: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding-bottom: 80px; }
         
-        /* 登入卡片 */
         .login-card { max-width: 400px; margin: 60px auto; border-radius: 20px; border: none; box-shadow: 0 10px 25px rgba(0,0,0,0.08); background: white; padding: 2rem; }
-
-        /* 商品卡片 */
         .product-card { border: none; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); background: white; margin-bottom: 10px; }
         .qty-btn { width: 30px; height: 30px; padding: 0; border-radius: 50%; font-weight: bold; }
-        
-        /* 歷史訂單卡片 */
         .history-card { border: none; border-radius: 12px; background: white; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); border-left: 5px solid #0d6efd; }
         
-        /* 底部導航欄 (Bottom Tab Bar) */
-        .bottom-nav {
-            position: fixed; bottom: 0; left: 0; width: 100%; height: 60px;
-            background: white; border-top: 1px solid #eee;
-            display: flex; justify-content: space-around; align-items: center;
-            z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-        }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: white; border-top: 1px solid #eee; display: flex; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
         .nav-item { text-align: center; color: #adb5bd; font-size: 0.8rem; cursor: pointer; flex: 1; }
         .nav-item.active { color: #0d6efd; font-weight: bold; }
         .nav-icon { font-size: 1.2rem; display: block; margin-bottom: 2px; }
-
-        /* 預計送貨 Banner */
         .delivery-banner { background-color: #e7f1ff; color: #0c5460; padding: 10px 15px; font-size: 0.9rem; border-radius: 8px; margin-bottom: 15px; border: 1px solid #b8daff; display: flex; align-items: center; }
 
         [v-cloak] { display: none; }
@@ -43,7 +36,7 @@
         <div class="login-card text-center">
             <h1 style="font-size: 3rem;">🍗</h1>
             <h3 class="fw-bold text-dark mb-1">豪大大炸雞</h3>
-            <p class="text-muted mb-4">分店訂貨系統 v3.0</p>
+            <p class="text-muted mb-4">分店訂貨系統 v3.1</p>
             <form @submit.prevent="handleLogin">
                 <div class="form-floating mb-3 text-start"><input type="text" class="form-control" id="uid" v-model="loginForm.username" placeholder="帳號" required><label for="uid">分店帳號 (ID)</label></div>
                 <div class="form-floating mb-4 text-start"><input type="password" class="form-control" id="pwd" v-model="loginForm.password" placeholder="密碼" required><label for="pwd">密碼</label></div>
@@ -64,7 +57,6 @@
     </div>
 
     <div v-else class="container pt-3">
-        
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="fw-bold mb-0 text-dark">{{ currentUser.display_name }}</h5>
             <button class="btn btn-sm btn-light text-danger" @click="logout">登出</button>
@@ -72,49 +64,30 @@
 
         <div v-if="currentTab === 'order'" class="delivery-banner shadow-sm">
             <span style="font-size: 1.2rem; margin-right: 10px;">🚛</span>
-            <div>
-                <strong>預計送貨：</strong> {{ estimatedDelivery }}
-                <div style="font-size: 0.75rem; opacity: 0.8;">(截單時間 14:00，逾時後天送達)</div>
-            </div>
+            <div><strong>預計送貨：</strong> {{ estimatedDelivery }}<div style="font-size: 0.75rem; opacity: 0.8;">(截單時間 14:00)</div></div>
         </div>
 
         <div v-if="currentTab === 'order'">
             <div v-if="loadingProducts" class="text-center my-5"><div class="spinner-border text-primary" role="status"></div></div>
-            
             <div v-else>
                 <div class="row g-2">
                     <div class="col-12" v-for="item in products" :key="item.unit_id">
                         <div class="card product-card p-3">
                             <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="fw-bold mb-1">{{ item.product_name }}</h6>
-                                    <span class="badge bg-light text-dark border">{{ item.selling_unit }} ({{ item.rate }}{{ item.base_unit }})</span>
-                                </div>
-                                
+                                <div><h6 class="fw-bold mb-1">{{ item.product_name }}</h6><span class="badge bg-light text-dark border">{{ item.selling_unit }} ({{ item.rate }}{{ item.base_unit }})</span></div>
                                 <div class="d-flex align-items-center">
-                                    <button class="btn btn-outline-secondary qty-btn d-flex align-items-center justify-content-center" 
-                                        @click="item.orderQty = (item.orderQty > 0 ? item.orderQty - 1 : 0)" 
-                                        :disabled="!item.orderQty || item.orderQty <= 0">-</button>
-                                    
-                                    <input type="number" class="form-control form-control-sm border-0 text-center fw-bold mx-1" 
-                                           style="width: 50px; font-size: 1.1rem;" 
-                                           v-model.number="item.orderQty" placeholder="0" min="0">
-                                    
-                                    <button class="btn btn-primary qty-btn d-flex align-items-center justify-content-center" 
-                                        @click="item.orderQty = (item.orderQty || 0) + 1">+</button>
+                                    <button class="btn btn-outline-secondary qty-btn d-flex align-items-center justify-content-center" @click="item.orderQty = (item.orderQty > 0 ? item.orderQty - 1 : 0)" :disabled="!item.orderQty || item.orderQty <= 0">-</button>
+                                    <input type="number" class="form-control form-control-sm border-0 text-center fw-bold mx-1" style="width: 50px; font-size: 1.1rem;" v-model.number="item.orderQty" placeholder="0" min="0">
+                                    <button class="btn btn-primary qty-btn d-flex align-items-center justify-content-center" @click="item.orderQty = (item.orderQty || 0) + 1">+</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                
                 <div class="fixed-bottom p-3" style="bottom: 60px; z-index: 990;" v-if="cartTotalQty > 0">
-                    <button class="btn btn-primary w-100 py-3 rounded-pill shadow fw-bold fs-5" @click="placeOrder">
-                        確認下單 ({{ cartTotalQty }} 件)
+                    <button class="btn btn-primary w-100 py-3 rounded-pill shadow fw-bold fs-5" @click="openConfirmModal">
+                        下單 ({{ cartTotalQty }} 件)
                     </button>
-                </div>
-                <div v-else class="text-center text-muted mt-5 py-5">
-                    <p>請選擇商品數量</p>
                 </div>
             </div>
         </div>
@@ -122,48 +95,52 @@
         <div v-if="currentTab === 'history'">
             <h5 class="fw-bold mb-3">📦 最近 20 筆訂單</h5>
             <div v-if="loadingHistory" class="text-center my-5"><div class="spinner-border text-secondary" role="status"></div></div>
-            
             <div v-else>
                 <div v-for="order in orderHistory" :key="order.order_no" class="card history-card p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <div class="fw-bold text-dark">{{ order.date }}</div>
-                            <div class="text-muted small">{{ order.order_no }}</div>
-                        </div>
-                        <span class="badge bg-success">已確認</span>
-                    </div>
-                    
-                    <div class="bg-light p-2 rounded mb-3 small">
-                        <div v-for="item in order.items" class="d-flex justify-content-between">
-                            <span>{{ item.product_name }}</span>
-                            <span class="fw-bold">x {{ item.qty }} {{ item.unit_name }}</span>
-                        </div>
-                    </div>
-                    
-                    <button class="btn btn-outline-primary w-100 btn-sm fw-bold" @click="quickReorder(order)">
-                        🔄 照單再買 (Quick Reorder)
-                    </button>
+                    <div class="d-flex justify-content-between align-items-start mb-2"><div><div class="fw-bold text-dark">{{ order.date }}</div><div class="text-muted small">{{ order.order_no }}</div></div><span class="badge bg-success">已確認</span></div>
+                    <div class="bg-light p-2 rounded mb-3 small"><div v-for="item in order.items" class="d-flex justify-content-between"><span>{{ item.product_name }}</span><span class="fw-bold">x {{ item.qty }} {{ item.unit_name }}</span></div></div>
+                    <button class="btn btn-outline-primary w-100 btn-sm fw-bold" @click="quickReorder(order)">🔄 照單再買 (Quick Reorder)</button>
                 </div>
                 <div v-if="orderHistory.length === 0" class="text-center text-muted py-5">暫無歷史訂單</div>
             </div>
         </div>
+    </div>
 
+    <div class="modal fade" id="confirmOrderModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">📝 確認訂單詳情</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-3" v-for="item in cartItems" :key="item.unit_id">
+                            <div>
+                                <h6 class="mb-0 fw-bold">{{ item.product_name }}</h6>
+                                <small class="text-muted">{{ item.selling_unit }}裝</small>
+                            </div>
+                            <span class="badge bg-primary rounded-pill fs-6">x {{ item.orderQty }}</span>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-light text-end border-top">
+                        <span class="text-muted">總數量:</span> <span class="fw-bold fs-5 text-dark">{{ cartTotalQty }} 件</span>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light text-muted flex-grow-1 py-2" data-bs-dismiss="modal">再諗諗 (No)</button>
+                    <button type="button" class="btn btn-primary flex-grow-1 py-2 fw-bold" @click="submitOrder">確認提交 (Yes)</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div v-if="currentUser && !currentUser.is_reset_needed" class="bottom-nav">
-        <div class="nav-item" :class="{ active: currentTab === 'order' }" @click="currentTab = 'order'">
-            <span class="nav-icon">🛒</span>
-            下單
-        </div>
-        <div class="nav-item" :class="{ active: currentTab === 'history' }" @click="switchTab('history')">
-            <span class="nav-icon">📜</span>
-            紀錄
-        </div>
+        <div class="nav-item" :class="{ active: currentTab === 'order' }" @click="currentTab = 'order'"><span class="nav-icon">🛒</span>下單</div>
+        <div class="nav-item" :class="{ active: currentTab === 'history' }" @click="switchTab('history')"><span class="nav-icon">📜</span>紀錄</div>
     </div>
 
-    <div class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 1100;">
-        <div id="liveToast" class="toast align-items-center text-white border-0 shadow" :class="toastClass" role="alert"><div class="d-flex"><div class="toast-body text-center w-100 fw-bold">{{ toastMessage }}</div></div></div>
-    </div>
+    <div class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 1100;"><div id="liveToast" class="toast align-items-center text-white border-0 shadow" :class="toastClass" role="alert"><div class="d-flex"><div class="toast-body text-center w-100 fw-bold">{{ toastMessage }}</div></div></div></div>
 
 </div>
 
@@ -171,51 +148,50 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+    // 👇 註冊 PWA Service Worker (新增這段)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('PWA Service Worker 註冊成功: ', reg.scope))
+                .catch(err => console.log('PWA Service Worker 註冊失敗: ', err));
+        });
+    }
+    
     const { createApp } = Vue
 
     createApp({
         data() {
             return {
-                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改網址！
+                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改成你的網址！
                 
-                currentUser: null,
-                loginForm: { username: '', password: '' },
-                newPassword: '',
+                currentUser: null, loginForm: { username: '', password: '' }, newPassword: '',
+                currentTab: 'order', products: [], orderHistory: [],
+                loading: false, loadingProducts: false, loadingHistory: false,
+                toastMessage: '', toastClass: 'bg-success', 
                 
-                currentTab: 'order', // order | history
-                products: [],
-                orderHistory: [],
-                
-                loading: false,
-                loadingProducts: false,
-                loadingHistory: false,
-                
-                toastMessage: '', toastClass: 'bg-success', toastInstance: null
+                // Instances
+                toastInstance: null, confirmModalInstance: null
             }
         },
         computed: {
-            // 計算購物車總件數
+            // 👇 新增: 自動篩選出有數量的商品
+            cartItems() {
+                return this.products.filter(p => p.orderQty > 0);
+            },
             cartTotalQty() {
                 return this.products.reduce((sum, item) => sum + (item.orderQty || 0), 0);
             },
-            // 計算預計送貨時間
             estimatedDelivery() {
                 const now = new Date();
-                const hour = now.getHours();
-                // 邏輯：下午 2 點前下單 -> 明天送；2 點後 -> 後天送
-                let deliveryDate = new Date();
-                if (hour < 14) {
-                    deliveryDate.setDate(now.getDate() + 1); // 明天
-                } else {
-                    deliveryDate.setDate(now.getDate() + 2); // 後天
-                }
-                const day = deliveryDate.getDate();
-                const month = deliveryDate.getMonth() + 1;
-                return `${month}月${day}日 下午`;
+                let d = new Date();
+                d.setDate(now.getDate() + (now.getHours() < 14 ? 1 : 2));
+                return `${d.getMonth()+1}月${d.getDate()}日 下午`;
             }
         },
         mounted() {
             this.toastInstance = new bootstrap.Toast(document.getElementById('liveToast'), { delay: 2000 });
+            this.confirmModalInstance = new bootstrap.Modal(document.getElementById('confirmOrderModal')); // 初始化 Modal
+            
             const savedUser = localStorage.getItem('storeUser');
             if (savedUser) {
                 this.currentUser = JSON.parse(savedUser);
@@ -227,73 +203,50 @@
                 this.currentTab = tab;
                 if (tab === 'history') this.fetchHistory();
             },
-
-            // 1. 獲取產品 (下單用)
             async fetchProducts() {
                 this.loadingProducts = true;
                 try {
                     const r = await fetch(`${this.apiUrl}products`);
                     const data = await r.json();
-                    // 保留已輸入的數量 (如果切換 Tab 回來)
                     this.products = data.map(newItem => {
                         const existing = this.products.find(p => p.unit_id === newItem.unit_id);
                         return { ...newItem, orderQty: existing ? existing.orderQty : null };
                     });
-                } catch(e) { this.showToast('無法連線', 'bg-danger'); } 
-                finally { this.loadingProducts = false; }
+                } catch(e) { this.showToast('無法連線', 'bg-danger'); } finally { this.loadingProducts = false; }
             },
-
-            // 2. 獲取歷史紀錄
             async fetchHistory() {
                 this.loadingHistory = true;
                 try {
-                    // 需要 Token
-                    const r = await fetch(`${this.apiUrl}store/my_orders`, {
-                        headers: { 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('storeToken'))}` }
-                    });
+                    const r = await fetch(`${this.apiUrl}store/my_orders`, { headers: { 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('storeToken'))}` } });
                     if(r.ok) this.orderHistory = await r.json();
                 } catch(e) {} finally { this.loadingHistory = false; }
             },
-
-            // 3. 照單再買 (Quick Reorder) 核心邏輯
             quickReorder(pastOrder) {
-                // 清空當前購物車
                 this.products.forEach(p => p.orderQty = null);
-                
                 let matchCount = 0;
-                // 遍歷舊單，填入新單
                 pastOrder.items.forEach(oldItem => {
-                    // 根據 unit_id 匹配
                     const target = this.products.find(p => p.unit_id === oldItem.unit_id);
-                    if (target) {
-                        target.orderQty = oldItem.qty;
-                        matchCount++;
-                    }
+                    if (target) { target.orderQty = oldItem.qty; matchCount++; }
                 });
-
-                if (matchCount > 0) {
-                    this.currentTab = 'order'; // 跳回下單頁
-                    this.showToast(`已載入 ${matchCount} 項商品`, 'bg-success');
-                } else {
-                    this.showToast('商品已下架或無法匹配', 'bg-warning');
-                }
+                if (matchCount > 0) { this.currentTab = 'order'; this.showToast(`已載入 ${matchCount} 項商品`, 'bg-success'); } 
+                else { this.showToast('無法匹配商品', 'bg-warning'); }
             },
 
-            // 4. 下單 (已升級：批量發送)
-            async placeOrder() {
-                const itemsToBuy = this.products.filter(p => p.orderQty > 0);
-                if (itemsToBuy.length === 0) return;
+            // 👇 新增: 打開確認視窗
+            openConfirmModal() {
+                if (this.cartItems.length === 0) return;
+                this.confirmModalInstance.show();
+            },
 
+            // 👇 修改: 真正的下單動作 (由 Modal 的確認按鈕觸發)
+            async submitOrder() {
+                this.confirmModalInstance.hide(); // 關閉視窗
+                
                 this.showToast('正在提交訂單...', 'bg-info');
 
-                // 準備批量數據
-                // 我們只需要傳 unit_id 和 quantity，後端會自己查 product_id
                 const payload = {
                     store_name: this.currentUser.display_name,
-                    items: itemsToBuy.map(item => ({
-                        unit_id: item.unit_id,
-                        quantity: item.orderQty
-                    }))
+                    items: this.cartItems.map(item => ({ unit_id: item.unit_id, quantity: item.orderQty }))
                 };
                 
                 try {
@@ -302,61 +255,41 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    
                     const result = await response.json();
 
                     if (response.ok) {
-                        this.showToast(`✅ 下單成功！包含 ${itemsToBuy.length} 項商品`, 'bg-success');
-                        // 清空購物車
+                        this.showToast(`✅ 下單成功！`, 'bg-success');
                         this.products.forEach(p => p.orderQty = null);
-                        // 切換去紀錄頁睇下
                         setTimeout(() => { this.switchTab('history'); }, 1000);
                     } else {
                         this.showToast(`❌ 失敗: ${result.detail}`, 'bg-danger');
                     }
-                } catch (error) {
-                    this.showToast(`❌ 連線錯誤`, 'bg-danger');
-                }
+                } catch (error) { this.showToast(`❌ 連線錯誤`, 'bg-danger'); }
             },
 
-            // ... Auth 相關 (保持不變) ...
+            // Auth
             async handleLogin() {
                 this.loading = true;
                 try {
-                    const res = await fetch(`${this.apiUrl}admin/login`, { // 注意：Store login 其實可以用同一個 Endpoint 如果你後端沒分開
-                        // 修正：我們之前寫的是 admin/login，後端 logic 查的是 admin_users table
-                        // 我們需要一個分店用的 login。
-                        // 暫時：我們在 main.py 寫一個通用 login 查 store_users? 
-                        // 或者：用回我們在 Store App v1.0 的那個 login (功能 #8)
-                        // 讓我們用 /login (功能 #8)
-                    });
-                    
-                    // 修正：Store Login API 是 /login
-                    const r = await fetch(`${this.apiUrl}login`, {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(this.loginForm)
-                    });
+                    const r = await fetch(`${this.apiUrl}login`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.loginForm) });
                     const data = await r.json();
-                    
                     if (r.ok) {
                         this.currentUser = data.user;
-                        // Store API 沒回傳 token，所以這裡我們只存 User Object
-                        // 但為了 fetchHistory 需要 Token，我們可能需要後端 /login 也回傳 Token
-                        // 暫時 Hack: 由於 /login 沒回傳 Token (只回傳 user info)，fetchHistory 可能會 401
-                        // 解決方案：請看下面後端補充
+                        this.loginForm = { username: '', password: '' };
                         localStorage.setItem('storeUser', JSON.stringify(this.currentUser));
-                        // 這裡假設後端 login 有回傳 token (如果沒有，fetchHistory 會失敗)
-                        // 為了簡單，我們假設你後端 login 已經回傳了 token (我們去改改後端)
                         if(data.access_token) localStorage.setItem('storeToken', JSON.stringify(data.access_token));
-
                         if (!this.currentUser.is_reset_needed) this.fetchProducts();
-                    } else { this.showToast('登入失敗', 'bg-danger'); }
-                } catch(e) { this.showToast('連線錯誤', 'bg-danger'); } 
-                finally { this.loading = false; }
+                    } else { this.showToast(data.detail || "登入失敗", 'bg-danger'); }
+                } catch(e) { this.showToast('連線錯誤', 'bg-danger'); } finally { this.loading = false; }
             },
-            logout() { this.currentUser = null; localStorage.removeItem('storeUser'); this.currentTab='order'; },
-            async handleChangePassword() { /* ... 同之前 ... */ },
-            guessProductId(name) { if(name.includes("雞胸")) return 1; if(name.includes("炸粉")) return 2; if(name.includes("辣粉")) return 3; return 1; },
+            logout() { this.currentUser = null; localStorage.removeItem('storeUser'); localStorage.removeItem('storeToken'); this.currentTab='order'; },
+            async handleChangePassword() {
+                if (!this.newPassword) return;
+                try {
+                    const res = await fetch(`${this.apiUrl}change_password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: this.currentUser.id, new_password: this.newPassword }) });
+                    if (res.ok) { alert("密碼修改成功！請重新登入"); this.logout(); } else { alert("修改失敗"); }
+                } catch (e) { alert("連線錯誤"); }
+            },
             showToast(msg, cls) { this.toastMessage=msg; this.toastClass=cls; this.toastInstance.show(); }
         }
     }).mount('#app')
