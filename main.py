@@ -389,7 +389,7 @@ def login(data: LoginSchema):
     try:
         # 查詢用戶
         cursor.execute(
-            "SELECT id, display_name, password, is_active, is_reset_needed FROM store_users WHERE username = %s", 
+            "SELECT id, display_name, password, is_active, is_reset_needed, username FROM store_users WHERE username = %s", 
             (data.username,)
         )
         user = cursor.fetchone()
