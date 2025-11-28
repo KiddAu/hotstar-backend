@@ -355,13 +355,13 @@ def get_admin_products():
     conn.close()
     return products
 
-# 11. 庫存調整/入貨 API
+# 11. 庫存調整/入貨 API (已升級：會寫入 Log 表)
 @app.post("/restock")
 def restock_product(data: RestockSchema):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
-        # SQL: 原有庫存 + 變動數量
+        # 1. 更新產品總庫存
         cursor.execute(
             "UPDATE products SET current_stock = current_stock + %s WHERE id = %s RETURNING name, current_stock, base_unit",
             (data.quantity, data.product_id)
@@ -370,13 +370,18 @@ def restock_product(data: RestockSchema):
         
         if not result:
             raise HTTPException(status_code=404, detail="搵唔到件貨")
+        
+        # 2. 插入庫存變動紀錄 (新增這一步)
+        cursor.execute(
+            "INSERT INTO inventory_logs (product_id, change_qty, note) VALUES (%s, %s, %s)",
+            (data.product_id, data.quantity, data.note)
+        )
 
         conn.commit()
         
         product_name = result[0]
         new_stock = result[1]
         unit = result[2]
-        
         action = "入貨" if data.quantity > 0 else "扣除"
         
         return {
@@ -390,3 +395,44 @@ def restock_product(data: RestockSchema):
     finally:
         cursor.close()
         conn.close()
+
+# 12. 獲取庫存變動紀錄 (支援月份篩選)
+@app.get("/admin/inventory_logs")
+def get_inventory_logs(month: str = None): 
+    # month 格式預期為 "2025-11"
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    
+    sql = """
+        SELECT 
+            to_char(l.created_at, 'YYYY-MM-DD HH24:MI') as log_time,
+            p.name,
+            l.change_qty,
+            p.base_unit,
+            l.note
+        FROM inventory_logs l
+        JOIN products p ON l.product_id = p.id
+    """
+    
+    # 如果有傳月份過來，就加 Filter
+    if month:
+        sql += f" WHERE to_char(l.created_at, 'YYYY-MM') = '{month}'"
+    
+    sql += " ORDER BY l.created_at DESC"
+    
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    
+    logs = []
+    for row in rows:
+        logs.append({
+            "time": row[0],
+            "product": row[1],
+            "qty": float(row[2]),
+            "unit": row[3],
+            "note": row[4]
+        })
+    
+    cursor.close()
+    conn.close()
+    return logs
