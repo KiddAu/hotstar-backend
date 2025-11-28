@@ -23,6 +23,14 @@
 
 <div id="app" v-cloak>
 
+    <div v-if="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="background: rgba(255,255,255,0.8); z-index: 9999;">
+        <div class="text-center">
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+            <p class="mt-2 fw-bold text-dark">數據讀取中，請稍候...</p>
+            <small class="text-muted">(若伺服器剛喚醒，可能需時 30 秒)</small>
+        </div>
+    </div>
+
     <div v-if="!isLoggedIn" class="container">
         <div class="login-container text-center">
             <h2 class="fw-bold text-dark mb-4">🍗 總部系統登入</h2>
@@ -160,7 +168,9 @@
                 limits: { orders: 30, users: 10, inventory: 10, logs: 20, configProducts: 10, configLogs: 50 },
 
                 userModalInstance: null, restockModalInstance: null, newProductModalInstance: null, unitModalInstance: null, flatpickrInstance: null, orderDateInstance: null,
-                charts: { trend: null, product: null, store: null }
+                charts: { trend: null, product: null, store: null },
+
+                globalLoading: false,
             }
         },
         computed: {
@@ -241,22 +251,33 @@
 
             // 👇 核心：帶 Token 的 Fetch 函數
             async authFetch(endpoint, options = {}) {
+                this.globalLoading = true; // 🟢 開始轉圈
+                
                 if (!options.headers) options.headers = {};
-                // 加入 Token Header
                 options.headers['Authorization'] = `Bearer ${this.adminToken}`;
                 
                 try {
                     const res = await fetch(endpoint, options);
+                    
                     if (res.status === 401) {
-                        // 如果 Token 過期或失效，強制登出
                         alert("連線逾時，請重新登入");
                         this.logout();
                         return null;
                     }
+                    
+                    if (!res.ok) {
+                        // 如果後端報錯 (例如 500)，在這裡攔截並提示
+                        console.error("API Error:", res.status);
+                        // alert("伺服器繁忙，請稍後再試"); 
+                        return null;
+                    }
+
                     return res;
                 } catch (e) {
                     console.error("Network Error", e);
                     return null;
+                } finally {
+                    this.globalLoading = false; // 🔴 無論成功失敗，停止轉圈
                 }
             },
 
