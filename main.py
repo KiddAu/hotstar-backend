@@ -220,7 +220,7 @@ def create_order(order: OrderSchema):
         
 # 3. 後台查詢訂單 API (已升級：支援日期範圍篩選)
 @app.get("/orders")
-def get_orders(current_user: str = Depends(get_current_admin), store: str = None, start_date: str = None, end_date: str = None):
+def get_orders(store: str = None, start_date: str = None, end_date: str = None, current_user: str = Depends(get_current_admin)):
     # start_date / end_date 格式: YYYY-MM-DD
     
     conn = psycopg2.connect(DB_URL)
@@ -280,7 +280,7 @@ def get_orders(current_user: str = Depends(get_current_admin), store: str = None
     
 # 4. Admin 新增用戶 API
 @app.post("/create_user")
-def create_user(current_user: str = Depends(get_current_admin), user: UserSchema):
+def create_user(user: UserSchema, current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
 
@@ -331,7 +331,7 @@ def get_users(current_user: str = Depends(get_current_admin)):
 
 # 6. 切換用戶狀態 (停用/啟用)
 @app.put("/users/{user_id}/toggle")
-def toggle_user_status(current_user: str = Depends(get_current_admin), user_id: int):
+def toggle_user_status(user_id: int, current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -352,7 +352,7 @@ def toggle_user_status(current_user: str = Depends(get_current_admin), user_id: 
         
 # 7. 重置密碼 API (新增功能)
 @app.put("/users/{user_id}/reset_password")
-def reset_password(current_user: str = Depends(get_current_admin), user_id: int):
+def reset_password(user_id: int, current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -463,7 +463,7 @@ def get_admin_products(current_user: str = Depends(get_current_admin)):
 
 # 11. 庫存調整/入貨 API (已升級：會寫入 Log 表)
 @app.post("/restock")
-def restock_product(current_user: str = Depends(get_current_admin), data: RestockSchema):
+def restock_product(data: RestockSchema, current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -504,7 +504,7 @@ def restock_product(current_user: str = Depends(get_current_admin), data: Restoc
 
 # 12. 獲取庫存變動紀錄 (已升級：支援日期範圍)
 @app.get("/admin/inventory_logs")
-def get_inventory_logs(current_user: str = Depends(get_current_admin), start_date: str = None, end_date: str = None): 
+def get_inventory_logs(start_date: str = None, end_date: str = None, current_user: str = Depends(get_current_admin)): 
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     
@@ -555,7 +555,7 @@ def get_inventory_logs(current_user: str = Depends(get_current_admin), start_dat
 
 # 13. 新增產品 (基礎資料)
 @app.post("/admin/products/create")
-def create_product(current_user: str = Depends(get_current_admin), data: CreateProductSchema):
+def create_product(data: CreateProductSchema, current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -582,7 +582,7 @@ def create_product(current_user: str = Depends(get_current_admin), data: CreateP
 
 # 14. 產品上下架 (切換狀態)
 @app.put("/admin/products/{product_id}/toggle")
-def toggle_product(current_user: str = Depends(get_current_admin), product_id: int):
+def toggle_product(product_id: int, current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -604,7 +604,7 @@ def toggle_product(current_user: str = Depends(get_current_admin), product_id: i
 
 # 15. 獲取某產品的所有單位 (用於編輯)
 @app.get("/admin/products/{product_id}/units")
-def get_product_units(current_user: str = Depends(get_current_admin), product_id: int):
+def get_product_units(product_id: int, current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     cursor.execute("SELECT id, unit_name, conversion_rate FROM product_units WHERE product_id = %s ORDER BY conversion_rate DESC", (product_id,))
@@ -618,7 +618,7 @@ def get_product_units(current_user: str = Depends(get_current_admin), product_id
 
 # 16. 新增單位 (例如為雞胸加一個「箱」的單位)
 @app.post("/admin/units/create")
-def create_unit(current_user: str = Depends(get_current_admin), data: CreateUnitSchema):
+def create_unit(data: CreateUnitSchema, current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -644,7 +644,7 @@ def create_unit(current_user: str = Depends(get_current_admin), data: CreateUnit
 
 # 17. 刪除單位
 @app.delete("/admin/units/{unit_id}")
-def delete_unit(current_user: str = Depends(get_current_admin), unit_id: int):
+def delete_unit(unit_id: int, current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
