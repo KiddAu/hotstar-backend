@@ -7,6 +7,7 @@ import datetime
 from datetime import timedelta
 from passlib.context import CryptContext # 👈 新增
 from jose import JWTError, jwt # 👈 新增
+from typing import List
 import os
 
 app = FastAPI()
@@ -34,12 +35,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 定義前端傳過來的訂單格式
-class OrderSchema(BaseModel):
-    store_name: str
-    product_id: int
+# 定義單一商品項目
+class OrderItemSchema(BaseModel):
     unit_id: int
     quantity: int
+
+# 定義整張訂單 (包含多個項目)
+class BatchOrderSchema(BaseModel):
+    store_name: str
+    items: List[OrderItemSchema]
     
 # 定義新增用戶的格式
 class UserSchema(BaseModel):
@@ -161,58 +165,77 @@ def get_products():
     conn.close()
     return results
 
-# 2. 下單 API
+# 2. 下單 API (已升級：支援批量下單 & 自動查 Product ID)
 @app.post("/order")
-def create_order(order: OrderSchema):
+def create_order(order: BatchOrderSchema):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
+    
     try:
-        # A. 查換算率
-        cursor.execute("SELECT conversion_rate FROM product_units WHERE id = %s", (order.unit_id,))
-        unit_data = cursor.fetchone()
-        if not unit_data:
-            raise HTTPException(status_code=400, detail="搵唔到呢個單位 ID")
-        rate = float(unit_data[0])
-        
-        # B. 計算總扣除量
-        total_deduct_qty = order.quantity * rate
-        
-        # C. 檢查庫存
-        cursor.execute("SELECT current_stock FROM products WHERE id = %s", (order.product_id,))
-        product_data = cursor.fetchone()
-        current_stock = float(product_data[0])
-        
-        if current_stock < total_deduct_qty:
-             raise HTTPException(status_code=400, detail=f"庫存不足！只剩 {current_stock}")
-
-        # D. 做數
+        # 1. 生成訂單編號
         hk_time = datetime.datetime.utcnow() + timedelta(hours=8)
         order_no = f"ORD-{hk_time.strftime('%Y%m%d%H%M%S')}"
+        
+        # 2. 建立訂單主表
         cursor.execute(
             "INSERT INTO orders (order_number, store_name, status) VALUES (%s, %s, 'APPROVED') RETURNING id",
             (order_no, order.store_name)
         )
         new_order_id = cursor.fetchone()[0]
         
-        cursor.execute(
-            "INSERT INTO order_items (order_id, product_id, unit_id, quantity, calculated_qty) VALUES (%s, %s, %s, %s, %s)",
-            (new_order_id, order.product_id, order.unit_id, order.quantity, total_deduct_qty)
-        )
+        total_deducted_weight = 0.0
         
-        cursor.execute(
-            "UPDATE products SET current_stock = current_stock - %s WHERE id = %s",
-            (total_deduct_qty, order.product_id)
-        )
-        
+        # 3. 處理每一個購買項目
+        for item in order.items:
+            # A. 查出該單位的 product_id 和換算率
+            cursor.execute("SELECT product_id, conversion_rate, unit_name FROM product_units WHERE id = %s", (item.unit_id,))
+            unit_data = cursor.fetchone()
+            
+            if not unit_data:
+                raise HTTPException(status_code=400, detail=f"單位 ID {item.unit_id} 無效")
+                
+            p_id = unit_data[0]
+            rate = float(unit_data[1])
+            unit_name = unit_data[2]
+            
+            # B. 計算扣除量
+            deduct_qty = item.quantity * rate
+            total_deducted_weight += deduct_qty
+            
+            # C. 檢查庫存 (並鎖定行以免並發錯誤)
+            cursor.execute("SELECT current_stock, name FROM products WHERE id = %s FOR UPDATE", (p_id,))
+            prod_data = cursor.fetchone()
+            current_stock = float(prod_data[0])
+            p_name = prod_data[1]
+            
+            if current_stock < deduct_qty:
+                raise HTTPException(status_code=400, detail=f"[{p_name}] 庫存不足！剩餘 {current_stock}，你需要 {deduct_qty}")
+            
+            # D. 插入明細
+            cursor.execute(
+                "INSERT INTO order_items (order_id, product_id, unit_id, quantity, calculated_qty) VALUES (%s, %s, %s, %s, %s)",
+                (new_order_id, p_id, item.unit_id, item.quantity, deduct_qty)
+            )
+            
+            # E. 扣庫存
+            cursor.execute(
+                "UPDATE products SET current_stock = current_stock - %s WHERE id = %s",
+                (deduct_qty, p_id)
+            )
+
         conn.commit()
+        
         return {
             "status": "success",
-            "message": f"成功下單！已扣除 {total_deduct_qty} KG",
-            "remaining_stock": current_stock - total_deduct_qty
+            "message": f"成功下單！單號 {order_no}",
+            "items_count": len(order.items)
         }
 
     except Exception as e:
         conn.rollback()
+        # 如果是我們自己拋出的 HTTPException，直接再拋出
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         cursor.close()

@@ -279,39 +279,43 @@
                 }
             },
 
-            // 4. 下單
+            // 4. 下單 (已升級：批量發送)
             async placeOrder() {
                 const itemsToBuy = this.products.filter(p => p.orderQty > 0);
                 if (itemsToBuy.length === 0) return;
 
-                // 逐個 Item 發送 API (或者是後端改為接收 Array，但為簡單起見這裡用 Loop)
-                // 更好的做法：後端 API 接收 List，但為了不改動太多後端邏輯，這裡前端 Loop 發送
-                // 註：你目前的後端只支援單一 Item 下單，建議未來升級為 Batch Order
-                // 這裡我們模擬逐單發送
-                
-                let successCount = 0;
                 this.showToast('正在提交訂單...', 'bg-info');
 
-                for (const item of itemsToBuy) {
-                    const orderData = {
-                        store_name: this.currentUser.display_name, 
-                        product_id: this.guessProductId(item.product_name), 
+                // 準備批量數據
+                // 我們只需要傳 unit_id 和 quantity，後端會自己查 product_id
+                const payload = {
+                    store_name: this.currentUser.display_name,
+                    items: itemsToBuy.map(item => ({
                         unit_id: item.unit_id,
                         quantity: item.orderQty
-                    };
-                    try {
-                        await fetch(`${this.apiUrl}order`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(orderData)
-                        });
-                        successCount++;
-                    } catch(e) {}
-                }
+                    }))
+                };
+                
+                try {
+                    const response = await fetch(`${this.apiUrl}order`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const result = await response.json();
 
-                if (successCount > 0) {
-                    this.showToast(`成功下單 ${successCount} 個項目！`, 'bg-success');
-                    this.products.forEach(p => p.orderQty = null); // 清空
+                    if (response.ok) {
+                        this.showToast(`✅ 下單成功！包含 ${itemsToBuy.length} 項商品`, 'bg-success');
+                        // 清空購物車
+                        this.products.forEach(p => p.orderQty = null);
+                        // 切換去紀錄頁睇下
+                        setTimeout(() => { this.switchTab('history'); }, 1000);
+                    } else {
+                        this.showToast(`❌ 失敗: ${result.detail}`, 'bg-danger');
+                    }
+                } catch (error) {
+                    this.showToast(`❌ 連線錯誤`, 'bg-danger');
                 }
             },
 
