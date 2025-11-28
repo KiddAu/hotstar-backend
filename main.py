@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware # 👈 新增這行
 import psycopg2
 from pydantic import BaseModel
 import datetime
+from datetime import timedelta
 import os
 
 app = FastAPI()
@@ -113,7 +114,8 @@ def create_order(order: OrderSchema):
              raise HTTPException(status_code=400, detail=f"庫存不足！只剩 {current_stock}")
 
         # D. 做數
-        order_no = f"ORD-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+        hk_time = datetime.datetime.utcnow() + timedelta(hours=8)
+        order_no = f"ORD-{hk_time.strftime('%Y%m%d%H%M%S')}"
         cursor.execute(
             "INSERT INTO orders (order_number, store_name, status) VALUES (%s, %s, 'APPROVED') RETURNING id",
             (order_no, order.store_name)
@@ -155,7 +157,7 @@ def get_orders():
         SELECT 
             o.order_number, 
             o.store_name, 
-            to_char(o.order_date, 'YYYY-MM-DD HH24:MI') as order_time,
+            to_char(o.order_date + interval '8 hours', 'YYYY-MM-DD HH24:MI') as order_time,
             p.name as product_name, 
             oi.quantity, 
             u.unit_name,
@@ -219,7 +221,7 @@ def get_users():
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     # 👇 拿走 password，改拿 is_reset_needed
-    cursor.execute("SELECT id, username, display_name, is_active, to_char(created_at, 'YYYY-MM-DD'), is_reset_needed FROM store_users ORDER BY id ASC")
+    cursor.execute("SELECT id, username, display_name, is_active, to_char(created_at + interval '8 hours', 'YYYY-MM-DD'), is_reset_needed FROM store_users ORDER BY id ASC")
     rows = cursor.fetchall()
     
     users = []
@@ -418,7 +420,7 @@ def get_inventory_logs(month: str = None):
     
     sql = """
         SELECT 
-            to_char(l.created_at, 'YYYY-MM-DD HH24:MI') as log_time,
+            to_char(l.created_at + interval '8 hours', 'YYYY-MM-DD HH24:MI') as log_time,
             p.name,
             l.change_qty,
             p.base_unit,
@@ -429,7 +431,7 @@ def get_inventory_logs(month: str = None):
     
     # 如果有傳月份過來，就加 Filter
     if month:
-        sql += f" WHERE to_char(l.created_at, 'YYYY-MM') = '{month}'"
+        sql += f" WHERE to_char(l.created_at + interval '8 hours', 'YYYY-MM') = '{month}'"
     
     sql += " ORDER BY l.created_at DESC"
     
@@ -571,7 +573,7 @@ def delete_unit(unit_id: int):
 def get_product_logs():
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
-    cursor.execute("SELECT to_char(created_at, 'YYYY-MM-DD HH24:MI'), product_name, action_type, details FROM product_config_logs ORDER BY created_at DESC LIMIT 50")
+    cursor.execute("SELECT to_char(created_at + interval '8 hours', 'YYYY-MM-DD HH24:MI'), product_name, action_type, details FROM product_config_logs ORDER BY created_at DESC LIMIT 50")
     rows = cursor.fetchall()
     
     logs = []
