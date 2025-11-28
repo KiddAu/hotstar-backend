@@ -758,3 +758,31 @@ def get_dashboard_stats(current_user: str = Depends(get_current_admin)):
             "values": [r[1] for r in top_stores]
         }
     }
+
+# ==========================
+# 🚑 緊急救援 API (用完可刪)
+# ==========================
+@app.get("/debug/reset_admin")
+def debug_reset_admin():
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    try:
+        # 1. 讓伺服器自己計算 "admin123" 的加密字串
+        # 這樣保證 100% 兼容
+        correct_hash = pwd_context.hash("admin123")
+        
+        # 2. 刪除舊帳號
+        cursor.execute("DELETE FROM admin_users WHERE username = 'admin'")
+        
+        # 3. 插入新帳號
+        cursor.execute(
+            "INSERT INTO admin_users (username, password_hash) VALUES (%s, %s)",
+            ('admin', correct_hash)
+        )
+        conn.commit()
+        return {"status": "success", "message": "Admin 重置成功！密碼是 admin123", "hash": correct_hash}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        cursor.close()
+        conn.close()
