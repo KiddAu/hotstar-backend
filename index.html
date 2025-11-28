@@ -2,104 +2,150 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>豪大大 - 分店訂貨系統</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>豪大大 - 分店訂貨</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; }
-        .product-card { transition: transform 0.2s; }
-        .product-card:hover { transform: translateY(-5px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .login-card { max-width: 400px; margin: 50px auto; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        body { background-color: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        /* 登入卡片樣式 */
+        .login-card {
+            max-width: 400px;
+            margin: 60px auto;
+            border-radius: 20px;
+            border: none;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            background: white;
+            padding: 2rem;
+        }
+
+        /* 商品卡片樣式 */
+        .product-card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+            overflow: hidden;
+        }
+        .product-card:active { transform: scale(0.98); }
+        .stock-tag { font-weight: bold; font-size: 0.85rem; }
+        
+        /* 底部導航/狀態欄 */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: white; border-top: 1px solid #dee2e6;
+            padding: 10px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            z-index: 1000;
+        }
+
         [v-cloak] { display: none; }
     </style>
 </head>
 <body>
 
-<div id="app" class="container py-4" v-cloak>
+<div id="app" v-cloak>
 
-    <div v-if="!currentUser" class="login-card bg-white p-4">
-        <div class="text-center mb-4">
-            <h2 class="fw-bold text-primary">🐔 豪大大訂貨</h2>
-            <p class="text-muted">分店專用系統</p>
-        </div>
-        <form @submit.prevent="handleLogin">
-            <div class="mb-3">
-                <label class="form-label">帳號 ID</label>
-                <input type="text" class="form-control" v-model="loginForm.username" placeholder="輸入分店帳號" required>
-            </div>
-            <div class="mb-4">
-                <label class="form-label">密碼</label>
-                <input type="password" class="form-control" v-model="loginForm.password" placeholder="輸入密碼" required>
-            </div>
-            <div class="d-grid">
-                <button type="submit" class="btn btn-primary btn-lg" :disabled="loading">
-                    {{ loading ? '登入中...' : '登入' }}
+    <div v-if="!currentUser" class="container px-3">
+        <div class="login-card text-center">
+            <h1 style="font-size: 3rem;">🍗</h1>
+            <h3 class="fw-bold text-dark mb-1">豪大大炸雞</h3>
+            <p class="text-muted mb-4">分店訂貨系統 v2.0</p>
+            
+            <form @submit.prevent="handleLogin">
+                <div class="form-floating mb-3 text-start">
+                    <input type="text" class="form-control" id="uid" v-model="loginForm.username" placeholder="帳號" required>
+                    <label for="uid">分店帳號 (ID)</label>
+                </div>
+                <div class="form-floating mb-4 text-start">
+                    <input type="password" class="form-control" id="pwd" v-model="loginForm.password" placeholder="密碼" required>
+                    <label for="pwd">密碼</label>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold fs-5" :disabled="loading">
+                    {{ loading ? '登入中...' : '登入系統' }}
                 </button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 
-    <div v-else-if="currentUser.is_reset_needed" class="login-card bg-white p-4 border-warning border-top border-5">
-        <h4 class="fw-bold text-center mb-3">⚠️ 安全提示</h4>
-        <p class="small text-muted text-center mb-4">您的密碼已被重置，為確保帳號安全，<br>請設定一個新的密碼。</p>
+    <div v-else-if="currentUser.is_reset_needed" class="container px-3">
+        <div class="login-card border-warning border-top border-5">
+            <div class="text-center mb-4">
+                <h1 style="font-size: 3rem;">⚠️</h1>
+                <h4 class="fw-bold">安全提示</h4>
+                <p class="text-muted small">您的密碼已被重置，為保障帳號安全，<br>請設定一個新的密碼。</p>
+            </div>
+            
+            <form @submit.prevent="handleChangePassword">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">新密碼</label>
+                    <input type="password" class="form-control form-control-lg" v-model="newPassword" placeholder="請輸入新密碼" required>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-warning text-dark fw-bold py-3 rounded-pill">確認修改</button>
+                    <button type="button" class="btn btn-link text-muted" @click="logout">取消並登出</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div v-else class="container pb-5" style="padding-top: 20px;">
         
-        <form @submit.prevent="handleChangePassword">
-            <div class="mb-3">
-                <label class="form-label">新密碼</label>
-                <input type="password" class="form-control" v-model="newPassword" placeholder="請輸入新密碼" required>
-            </div>
-            <div class="d-grid">
-                <button type="submit" class="btn btn-warning text-dark fw-bold">確認修改</button>
-            </div>
-        </form>
-    </div>
-
-    <div v-else>
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 px-1">
             <div>
-                <h4 class="fw-bold mb-0">👋 你好，{{ currentUser.display_name }}</h4>
+                <h5 class="fw-bold mb-0 text-dark">{{ currentUser.display_name }}</h5>
                 <small class="text-muted">今天想訂點什麼？</small>
             </div>
-            <button class="btn btn-outline-danger btn-sm" @click="logout">登出</button>
+            <button class="btn btn-sm btn-outline-danger rounded-pill px-3" @click="logout">登出</button>
         </div>
 
-        <div v-if="loadingProducts" class="text-center my-5">
+        <div v-if="loadingProducts" class="text-center my-5 py-5">
             <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">正在載入庫存...</p>
         </div>
 
         <div class="row g-3" v-else>
-            <div class="col-12 col-md-6 col-lg-4" v-for="item in products" :key="item.product_name + item.selling_unit">
-                <div class="card h-100 border-0 shadow-sm product-card">
+            <div class="col-12 col-md-6 col-lg-4" v-for="item in products" :key="item.unit_id">
+                <div class="card product-card h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="card-title fw-bold mb-0">{{ item.product_name }}</h5>
-                            <span class="badge bg-info text-dark">{{ item.selling_unit }}裝</span>
+                            <h5 class="card-title fw-bold mb-0 text-dark">{{ item.product_name }}</h5>
+                            <span class="badge bg-light text-dark border">{{ item.selling_unit }}裝</span>
                         </div>
                         
-                        <p class="card-text text-muted mb-1">
-                            換算率: 1{{ item.selling_unit }} = {{ item.rate }}KG
-                        </p>
-                        <p class="card-text mb-3">
-                            庫存狀態: <span class="badge bg-success">供應中</span>
-                        </p>
-
-                        <div class="d-flex gap-2">
-                            <input type="number" class="form-control" v-model.number="item.orderQty" min="1" placeholder="數量">
-                            <button class="btn btn-primary flex-shrink-0" @click="placeOrder(item)" :disabled="!item.orderQty">
-                                下單
-                            </button>
+                        <div class="d-flex justify-content-between align-items-end">
+                            <div>
+                                <p class="mb-1 small text-muted">規格: {{ item.rate }} {{ item.base_unit }}/{{ item.selling_unit }}</p>
+                                <p class="mb-0 stock-tag text-success">
+                                    <span class="badge bg-success bg-opacity-10 text-success">供應中</span>
+                                </p>
+                            </div>
+                            
+                            <div class="d-flex align-items-center bg-light rounded-pill p-1 border">
+                                <input type="number" class="form-control form-control-sm border-0 bg-transparent text-center fw-bold" 
+                                       style="width: 60px;" v-model.number="item.orderQty" placeholder="0" min="1">
+                                <button class="btn btn-primary btn-sm rounded-circle shadow-sm" 
+                                        style="width: 32px; height: 32px; padding: 0;"
+                                        @click="placeOrder(item)" :disabled="!item.orderQty">
+                                    +
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+        
+        <div style="height: 50px;"></div>
     </div>
 
-    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
-        <div id="liveToast" class="toast align-items-center text-white border-0" :class="toastClass" role="alert">
+    <div class="position-fixed bottom-0 start-50 translate-middle-x p-3" style="z-index: 9999; width: 90%; max-width: 400px;">
+        <div id="liveToast" class="toast align-items-center text-white border-0 shadow w-100" :class="toastClass" role="alert">
             <div class="d-flex">
-                <div class="toast-body fs-6">{{ toastMessage }}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                <div class="toast-body fs-6 fw-bold text-center w-100">
+                    {{ toastMessage }}
+                </div>
             </div>
         </div>
     </div>
@@ -115,25 +161,35 @@
     createApp({
         data() {
             return {
-                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改成你的 Render 網址
+                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 請記得改成你的 Render 網址！
                 
                 // 用戶狀態
-                currentUser: null, // 登入後會存 user object
+                currentUser: null,
                 loginForm: { username: '', password: '' },
-                newPassword: '', // 用於修改密碼
+                newPassword: '',
                 
-                // 產品與 UI 狀態
+                // 產品列表
                 products: [],
                 loading: false,
                 loadingProducts: false,
+                
+                // UI
                 toastMessage: '',
                 toastClass: 'bg-success',
                 toastInstance: null
             }
         },
         mounted() {
-            // 初始化 Toast
-            this.toastInstance = new bootstrap.Toast(document.getElementById('liveToast'));
+            this.toastInstance = new bootstrap.Toast(document.getElementById('liveToast'), { delay: 2000 });
+            
+            // 自動登入檢查 (LocalStorage)
+            const savedUser = localStorage.getItem('storeUser');
+            if (savedUser) {
+                this.currentUser = JSON.parse(savedUser);
+                if (!this.currentUser.is_reset_needed) {
+                    this.fetchProducts();
+                }
+            }
         },
         methods: {
             // 1. 登入功能
@@ -148,18 +204,20 @@
                     const data = await res.json();
                     
                     if (res.ok) {
-                        this.currentUser = data.user; // 登入成功！
-                        this.loginForm = { username: '', password: '' }; // 清空表單
+                        this.currentUser = data.user;
+                        this.loginForm = { username: '', password: '' };
                         
-                        // 如果不需要改密碼，就立刻拉取商品列表
+                        // 存入 LocalStorage 方便下次不用登入
+                        localStorage.setItem('storeUser', JSON.stringify(this.currentUser));
+                        
                         if (!this.currentUser.is_reset_needed) {
                             this.fetchProducts();
                         }
                     } else {
-                        alert(data.detail || "登入失敗");
+                        this.showToast(data.detail || "登入失敗", 'bg-danger');
                     }
                 } catch (e) {
-                    alert("連線錯誤，請檢查網絡");
+                    this.showToast("網絡連線錯誤", 'bg-danger');
                 } finally {
                     this.loading = false;
                 }
@@ -179,8 +237,8 @@
                     });
                     
                     if (res.ok) {
-                        alert("密碼修改成功！請使用新密碼重新登入。");
-                        this.logout(); // 強制登出，重新登入
+                        alert("密碼修改成功！請重新登入");
+                        this.logout();
                     } else {
                         alert("修改失敗");
                     }
@@ -189,29 +247,34 @@
                 }
             },
 
-            // 3. 獲取商品列表
+            // 3. 獲取產品列表 (只顯示上架中)
             async fetchProducts() {
                 this.loadingProducts = true;
                 try {
                     const response = await fetch(`${this.apiUrl}products`);
                     const data = await response.json();
+                    // 加入 orderQty 欄位
                     this.products = data.map(item => ({ ...item, orderQty: null }));
                 } catch (error) {
-                    this.showToast('無法讀取商品列表', 'bg-danger');
+                    this.showToast('無法載入產品列表', 'bg-danger');
                 } finally {
                     this.loadingProducts = false;
                 }
             },
 
-            // 4. 下單功能 (已升級：自動帶入分店名稱)
+            // 4. 下單 (自動帶入分店名)
             async placeOrder(item) {
                 if (item.orderQty <= 0) return;
 
                 const orderData = {
-                    // 🔴 這裡改用了 currentUser 的資料，不再需要手動輸入分店名
+                    // 👇 關鍵：從登入資訊中獲取分店名稱，不再需要手動輸入
                     store_name: this.currentUser.display_name, 
-                    product_id: item.product_name === '豪大大專用雞胸肉' ? 1 : 999, 
+                    product_id: item.product_name.includes('雞胸') ? 1 : 999, // ⚠️注意：這裡的ID邏輯最好在後端完善，或依賴 unit_id
+                    // 為了更準確，我們直接用 API 回傳的 unit_id
                     unit_id: item.unit_id,
+                    // Product ID 其實在 API 回傳列表時應該要包埋 (我們之前的 get_products API 沒回傳 product_id，只回傳了 name)
+                    // 暫時 hack: 
+                    product_id: this.guessProductId(item.product_name), 
                     quantity: item.orderQty
                 };
                 
@@ -223,22 +286,32 @@
                     });
                     
                     if (response.ok) {
-                        this.showToast('✅ 成功下單！', 'bg-success');
+                        this.showToast('✅ 下單成功！', 'bg-success');
                         item.orderQty = null;
-                        this.fetchProducts();
+                        // 不一定要刷新列表，除非你想顯示即時庫存扣減
                     } else {
                         const result = await response.json();
-                        this.showToast(`❌ 下單失敗: ${result.detail}`, 'bg-danger');
+                        this.showToast(`❌ 失敗: ${result.detail}`, 'bg-danger');
                     }
                 } catch (error) {
                     this.showToast(`❌ 錯誤: ${error.message}`, 'bg-danger');
                 }
             },
 
+            // 輔助：簡單判斷 Product ID (正式版應由後端直接提供 product_id)
+            guessProductId(name) {
+                if(name.includes("雞胸")) return 1;
+                if(name.includes("炸粉")) return 2;
+                if(name.includes("辣粉")) return 3;
+                return 1; // Default
+            },
+
             // 5. 登出
             logout() {
                 this.currentUser = null;
                 this.newPassword = '';
+                this.products = [];
+                localStorage.removeItem('storeUser');
             },
 
             showToast(message, bgClass) {
