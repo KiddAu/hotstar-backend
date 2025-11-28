@@ -614,3 +614,77 @@ def get_product_logs():
     cursor.close()
     conn.close()
     return logs
+
+# 19. Dashboard 統計數據 API
+@app.get("/admin/dashboard_stats")
+def get_dashboard_stats():
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    
+    # 1. KPI: 本月訂單總數 & 總出貨重量
+    # 使用 HKT 時間判定「本月」
+    cursor.execute("""
+        SELECT COUNT(*), COALESCE(SUM(oi.calculated_qty), 0)
+        FROM orders o
+        JOIN order_items oi ON o.id = oi.order_id
+        WHERE to_char(o.order_date + interval '8 hours', 'YYYY-MM') = to_char(NOW() + interval '8 hours', 'YYYY-MM')
+    """)
+    kpi_data = cursor.fetchone()
+    total_orders = kpi_data[0]
+    total_weight = float(kpi_data[1])
+
+    # 2. KPI: 庫存告急產品數量 (少於 100)
+    cursor.execute("SELECT COUNT(*) FROM products WHERE current_stock < 100 AND is_active = TRUE")
+    low_stock_count = cursor.fetchone()[0]
+
+    # 3. 圖表: 近 14 日訂單走勢
+    cursor.execute("""
+        SELECT to_char(order_date + interval '8 hours', 'MM-DD'), COUNT(*)
+        FROM orders
+        WHERE order_date >= NOW() - interval '14 days'
+        GROUP BY 1 ORDER BY 1 ASC
+    """)
+    trend_data = cursor.fetchall()
+    
+    # 4. 圖表: 熱賣商品分佈 (Top 5) - 本月
+    cursor.execute("""
+        SELECT p.name, SUM(oi.calculated_qty) as total_qty
+        FROM order_items oi
+        JOIN orders o ON oi.order_id = o.id
+        JOIN products p ON oi.product_id = p.id
+        WHERE to_char(o.order_date + interval '8 hours', 'YYYY-MM') = to_char(NOW() + interval '8 hours', 'YYYY-MM')
+        GROUP BY 1 ORDER BY 2 DESC LIMIT 5
+    """)
+    top_products = cursor.fetchall()
+    
+    # 5. 圖表: 最常叫貨分店 (Top 5) - 本月
+    cursor.execute("""
+        SELECT store_name, COUNT(*) 
+        FROM orders 
+        WHERE to_char(order_date + interval '8 hours', 'YYYY-MM') = to_char(NOW() + interval '8 hours', 'YYYY-MM')
+        GROUP BY 1 ORDER BY 2 DESC LIMIT 5
+    """)
+    top_stores = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "kpi": {
+            "total_orders": total_orders,
+            "total_weight": total_weight,
+            "low_stock_count": low_stock_count
+        },
+        "trend": {
+            "labels": [r[0] for r in trend_data],
+            "values": [r[1] for r in trend_data]
+        },
+        "top_products": {
+            "labels": [r[0] for r in top_products],
+            "values": [float(r[1]) for r in top_products]
+        },
+        "top_stores": {
+            "labels": [r[0] for r in top_stores],
+            "values": [r[1] for r in top_stores]
+        }
+    }
