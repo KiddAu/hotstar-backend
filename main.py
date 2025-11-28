@@ -1,15 +1,29 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware # 👈 新增這行
+from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
 from pydantic import BaseModel
 import datetime
 from datetime import timedelta
+from passlib.context import CryptContext # 👈 新增
+from jose import JWTError, jwt # 👈 新增
 import os
 
 app = FastAPI()
 
 # 🔴 記得換返你條 Connection String
 DB_URL = "postgresql://postgres.abelbiqlhnvfmksvhdnw:hotprojec20251126@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
+
+# 🔐 保安設定
+SECRET_KEY = "hotstar_secret_key_change_me" # 真實環境要改得好長好亂
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # Token 有效期 (24小時)
+
+# 密碼加密器
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# 定義 Token 獲取路徑 (話俾 FastAPI 知登入 API 喺邊)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="admin/login")
 
 # 👇 新增這段 CORS 設定 (這是解決問題的關鍵！)
 app.add_middleware(
@@ -61,9 +75,65 @@ class CreateUnitSchema(BaseModel):
     unit_name: str      # 例如: 箱
     conversion_rate: float # 例如: 20
 
+# --- 保安輔助功能 ---
+
+# 1. 驗證密碼 (明文 vs 加密後)
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+# 2. 製作 JWT 通行證
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+# 3. (Dependency) 攔截器：檢查請求有無帶有效 Token
+def get_current_admin(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="無法驗證憑證 (Invalid Token)",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    return username
+
+# ---------------
+
 @app.get("/")
 def home():
     return {"message": "豪大大系統"}
+
+# 0. Admin 登入 API (獲取 Token)
+@app.post("/admin/login")
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    conn = psycopg2.connect(DB_URL)
+    cursor = conn.cursor()
+    
+    # 查 Admin 表
+    cursor.execute("SELECT username, password_hash FROM admin_users WHERE username = %s", (form_data.username,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    # 驗證
+    if not user or not verify_password(form_data.password, user[1]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="帳號或密碼錯誤",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 發證
+    access_token = create_access_token(data={"sub": user[0]})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 # 1. 查詢庫存 API
 @app.get("/products")
@@ -150,7 +220,7 @@ def create_order(order: OrderSchema):
         
 # 3. 後台查詢訂單 API (已升級：支援日期範圍篩選)
 @app.get("/orders")
-def get_orders(store: str = None, start_date: str = None, end_date: str = None):
+def get_orders(current_user: str = Depends(get_current_admin), store: str = None, start_date: str = None, end_date: str = None):
     # start_date / end_date 格式: YYYY-MM-DD
     
     conn = psycopg2.connect(DB_URL)
@@ -210,7 +280,7 @@ def get_orders(store: str = None, start_date: str = None, end_date: str = None):
     
 # 4. Admin 新增用戶 API
 @app.post("/create_user")
-def create_user(user: UserSchema):
+def create_user(current_user: str = Depends(get_current_admin), user: UserSchema):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
 
@@ -238,7 +308,7 @@ def create_user(user: UserSchema):
         
 # 5. 獲取用戶列表 (已修改：移除密碼欄位，改為回傳 is_reset_needed)
 @app.get("/users")
-def get_users():
+def get_users(current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     # 👇 拿走 password，改拿 is_reset_needed
@@ -261,7 +331,7 @@ def get_users():
 
 # 6. 切換用戶狀態 (停用/啟用)
 @app.put("/users/{user_id}/toggle")
-def toggle_user_status(user_id: int):
+def toggle_user_status(current_user: str = Depends(get_current_admin), user_id: int):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -282,7 +352,7 @@ def toggle_user_status(user_id: int):
         
 # 7. 重置密碼 API (新增功能)
 @app.put("/users/{user_id}/reset_password")
-def reset_password(user_id: int):
+def reset_password(current_user: str = Depends(get_current_admin), user_id: int):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -370,7 +440,7 @@ def change_password(data: ChangePasswordSchema):
 
 # 10. (Admin專用) 獲取商品總庫存列表
 @app.get("/admin/products")
-def get_admin_products():
+def get_admin_products(current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     # 直接查 products 表，唔需要 Join 單位表
@@ -393,7 +463,7 @@ def get_admin_products():
 
 # 11. 庫存調整/入貨 API (已升級：會寫入 Log 表)
 @app.post("/restock")
-def restock_product(data: RestockSchema):
+def restock_product(current_user: str = Depends(get_current_admin), data: RestockSchema):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -434,7 +504,7 @@ def restock_product(data: RestockSchema):
 
 # 12. 獲取庫存變動紀錄 (已升級：支援日期範圍)
 @app.get("/admin/inventory_logs")
-def get_inventory_logs(start_date: str = None, end_date: str = None): 
+def get_inventory_logs(current_user: str = Depends(get_current_admin), start_date: str = None, end_date: str = None): 
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     
@@ -485,7 +555,7 @@ def get_inventory_logs(start_date: str = None, end_date: str = None):
 
 # 13. 新增產品 (基礎資料)
 @app.post("/admin/products/create")
-def create_product(data: CreateProductSchema):
+def create_product(current_user: str = Depends(get_current_admin), data: CreateProductSchema):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -512,7 +582,7 @@ def create_product(data: CreateProductSchema):
 
 # 14. 產品上下架 (切換狀態)
 @app.put("/admin/products/{product_id}/toggle")
-def toggle_product(product_id: int):
+def toggle_product(current_user: str = Depends(get_current_admin), product_id: int):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -534,7 +604,7 @@ def toggle_product(product_id: int):
 
 # 15. 獲取某產品的所有單位 (用於編輯)
 @app.get("/admin/products/{product_id}/units")
-def get_product_units(product_id: int):
+def get_product_units(current_user: str = Depends(get_current_admin), product_id: int):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     cursor.execute("SELECT id, unit_name, conversion_rate FROM product_units WHERE product_id = %s ORDER BY conversion_rate DESC", (product_id,))
@@ -548,7 +618,7 @@ def get_product_units(product_id: int):
 
 # 16. 新增單位 (例如為雞胸加一個「箱」的單位)
 @app.post("/admin/units/create")
-def create_unit(data: CreateUnitSchema):
+def create_unit(current_user: str = Depends(get_current_admin), data: CreateUnitSchema):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -574,7 +644,7 @@ def create_unit(data: CreateUnitSchema):
 
 # 17. 刪除單位
 @app.delete("/admin/units/{unit_id}")
-def delete_unit(unit_id: int):
+def delete_unit(current_user: str = Depends(get_current_admin), unit_id: int):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     try:
@@ -597,7 +667,7 @@ def delete_unit(unit_id: int):
 
 # 18. 獲取產品配置日誌
 @app.get("/admin/product_logs")
-def get_product_logs():
+def get_product_logs(current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     cursor.execute("SELECT to_char(created_at + interval '8 hours', 'YYYY-MM-DD HH24:MI'), product_name, action_type, details FROM product_config_logs ORDER BY created_at DESC LIMIT 50")
@@ -617,7 +687,7 @@ def get_product_logs():
 
 # 19. Dashboard 統計數據 API
 @app.get("/admin/dashboard_stats")
-def get_dashboard_stats():
+def get_dashboard_stats(current_user: str = Depends(get_current_admin)):
     conn = psycopg2.connect(DB_URL)
     cursor = conn.cursor()
     
