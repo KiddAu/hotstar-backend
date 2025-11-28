@@ -55,12 +55,64 @@
         <div class="table-card p-4 shadow-sm bg-white">
             
             <div v-show="currentTab === 'dashboard'">
+                
                 <div class="row g-4 mb-5">
-                    <div class="col-md-4"><div class="card kpi-card bg-primary p-3"><h6 class="opacity-75">訂單總數</h6><h2 class="fw-bold">{{ stats.kpi.total_orders }}</h2></div></div>
-                    <div class="col-md-4"><div class="card kpi-card bg-success p-3"><h6 class="opacity-75">總出貨量 (KG)</h6><h2 class="fw-bold">{{ stats.kpi.total_weight }}</h2></div></div>
-                    <div class="col-md-4"><div class="card kpi-card bg-danger p-3"><h6 class="opacity-75">告急產品</h6><h2 class="fw-bold">{{ stats.kpi.low_stock_count }}</h2></div></div>
+                    <div class="col-md-4">
+                        <div class="card kpi-card bg-primary p-3 shadow-sm h-100">
+                            <h6 class="opacity-75">📅 本月訂單總數</h6>
+                            <h2 class="fw-bold mb-0 display-6">{{ stats.kpi.total_orders }} <small class="fs-6">單</small></h2>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card kpi-card bg-success p-3 shadow-sm h-100">
+                            <h6 class="opacity-75">🚚 本月總出貨量</h6>
+                            <h2 class="fw-bold mb-0 display-6">{{ stats.kpi.total_weight }} <small class="fs-6">KG</small></h2>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card kpi-card bg-danger p-3 shadow-sm h-100">
+                            <h6 class="opacity-75">⚠️ 庫存告急產品</h6>
+                            <h2 class="fw-bold mb-0 display-6">{{ stats.kpi.low_stock_count }} <small class="fs-6">項</small></h2>
+                        </div>
+                    </div>
                 </div>
-                <div class="row g-4"><div class="col-lg-8"><div class="chart-container"><canvas id="trendChart"></canvas></div></div><div class="col-lg-4"><div class="chart-container"><canvas id="productChart"></canvas></div></div></div>
+
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="fw-bold text-dark mb-4">📈 近 14 日訂單走勢</h5>
+                                <div class="chart-container">
+                                    <canvas id="trendChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="fw-bold text-dark mb-4">🍗 本月熱賣 Top 5 (KG)</h5>
+                                <div class="chart-container">
+                                    <canvas id="productChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="fw-bold text-dark mb-4">🏆 本月最常叫貨分店 Top 5</h5>
+                                <div class="chart-container" style="height: 250px;">
+                                    <canvas id="storeChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             <div v-if="currentTab === 'orders'">
