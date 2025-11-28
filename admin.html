@@ -167,41 +167,65 @@
     createApp({
         data() {
             return {
-                apiUrl: 'https://hotstar-api.onrender.com/', // 🔴 記得改成你的網址！
+                apiUrl: 'https://你的-render-網址.onrender.com/', // 🔴 記得改成你的網址！
                 currentTab: 'orders',
+                
+                // 數據
                 orders: [], users: [], inventory: [], inventoryLogs: [],
                 newUser: { username: '', password: '', display_name: '' },
                 restockForm: { quantity: '', note: '' },
                 selectedProduct: null,
                 selectedMonth: new Date().toISOString().slice(0, 7),
-                userModalInstance: null, restockModalInstance: null
+                
+                // 實例
+                userModalInstance: null, restockModalInstance: null, flatpickrInstance: null
             }
         },
         mounted() {
             this.fetchOrders();
             this.userModalInstance = new bootstrap.Modal(document.getElementById('userModal'));
             this.restockModalInstance = new bootstrap.Modal(document.getElementById('restockModal'));
-
-            // 👇 修正後的日曆初始化 (使用標準模式，最穩定)
-            flatpickr("#monthPicker", {
-                locale: "zh_tw",
-                defaultDate: new Date(),
-                // 雖然係揀日，但我地將佢當揀月用
-                onChange: (selectedDates, dateStr) => {
-                    // dateStr 格式係 YYYY-MM-DD，我地只取前 7 個字 (YYYY-MM)
-                    this.selectedMonth = dateStr.slice(0, 7);
-                    this.fetchLogs();
-                }
-            });
-
-            this.fetchLogs();
         },
         methods: {
             switchTab(tab) {
                 this.currentTab = tab;
-                if (tab === 'users') this.fetchUsers();
-                if (tab === 'inventory') { this.fetchInventory(); this.fetchLogs(); }
+                
+                if (tab === 'users') {
+                    this.fetchUsers();
+                }
+                
+                if (tab === 'inventory') {
+                    this.fetchInventory(); 
+                    this.fetchLogs();
+                    
+                    // 👇 修正邏輯：每次切換進來，都要強制重新綁定日曆
+                    this.$nextTick(() => {
+                        // 1. 如果舊的實例還在，先銷毀它 (清理垃圾)
+                        if (this.flatpickrInstance) {
+                            this.flatpickrInstance.destroy();
+                            this.flatpickrInstance = null;
+                        }
+
+                        // 2. 重新尋找頁面上的輸入框 (確保它存在)
+                        const pickerElement = document.getElementById("monthPicker");
+                        
+                        if (pickerElement) {
+                            // 3. 綁定新的日曆
+                            this.flatpickrInstance = flatpickr(pickerElement, {
+                                locale: "zh_tw",
+                                defaultDate: this.selectedMonth, // 記住上次選的月份
+                                disableMobile: true, // 強制在手機都彈出日曆介面，不用手機原生的
+                                onChange: (selectedDates, dateStr) => {
+                                    // 格式是 YYYY-MM-DD，我們只取前 7 個字
+                                    this.selectedMonth = dateStr.slice(0, 7);
+                                    this.fetchLogs();
+                                }
+                            });
+                        }
+                    });
+                }
             },
+            
             // API Functions
             async fetchOrders() { try { const r = await fetch(`${this.apiUrl}orders`); this.orders = await r.json(); } catch(e){} },
             async fetchUsers() { try { const r = await fetch(`${this.apiUrl}users`); this.users = await r.json(); } catch(e){} },
@@ -212,10 +236,21 @@
                     this.inventoryLogs = await r.json(); 
                 } catch(e){} 
             },
-            exportToExcel() { /* 維持不變，省略以節省空間 */ },
+            
+            // 匯出 Excel
+            exportToExcel() {
+                if (this.orders.length === 0) { alert("無數據"); return; }
+                let csv = "\ufeff時間,編號,分店,商品,數量,重量\n";
+                this.orders.forEach(r => csv += `${r.time},${r.order_no},${r.store},${r.product},${r.qty},${r.total_weight}\n`);
+                const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = `訂單報表_${new Date().toISOString().slice(0,10)}.csv`;
+                link.click();
+            },
             
             // User Actions
-            async createUser() { try { const r = await fetch(`${this.apiUrl}create_user`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.newUser)}); if(r.ok){ this.userModalInstance.hide(); this.fetchUsers(); } else { alert('失敗'); } } catch(e){} },
+            async createUser() { try { const r = await fetch(`${this.apiUrl}create_user`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.newUser)}); if(r.ok){ this.userModalInstance.hide(); this.fetchUsers(); alert('成功建立'); } else { alert('失敗'); } } catch(e){} },
             async toggleUser(u) { if(confirm('確定?')) { await fetch(`${this.apiUrl}users/${u.id}/toggle`, {method:'PUT'}); u.is_active=!u.is_active; } },
             async resetPassword(u) { if(confirm('確定重置?')) { await fetch(`${this.apiUrl}users/${u.id}/reset_password`, {method:'PUT'}); alert('已重置'); this.fetchUsers(); } },
             
